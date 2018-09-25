@@ -1,4 +1,51 @@
-module SHA1 exposing (Digest, fromBytes, fromString, toBase64, toBytes, toHex)
+module SHA1 exposing
+    ( Digest
+    , fromString
+    , toHex, toBase64
+    , fromBytes, toBytes
+    )
+
+{-| [SHA-1] is a [cryptographic hash function]. Although it is no longer
+considered strong enough for certain high-risk situations, it is still very
+suitable for a broad range of uses, and is a lot stronger than MD5.
+
+[SHA-1]: https://en.wikipedia.org/wiki/SHA-1
+[cryptographic hash function]: https://en.wikipedia.org/wiki/Cryptographic_hash_function
+
+This package provides a way of creating SHA-1 digests from `String`s and `List
+Int`s (where each `Int` is between 0 and 255, and represents a byte). It can
+also take those `Digest`s and format them in [hexadecimal] or [base64] notation.
+Alternatively, you can get the binary digest, using a `List  Int` to represent
+the bytes.
+
+[hexadecimal]: https://en.wikipedia.org/wiki/Hexadecimal
+[base64]: https://en.wikipedia.org/wiki/Base64
+
+**Note:** Currently, the package can only create digests for around 200kb of
+data. If there is any interest in using this package for hashing >200kb, or for
+hashing [elm/bytes], [let me know][issues]!
+
+[elm/bytes]: https://github.com/elm/bytes
+[issues]: https://github.com/TSFoster/elm-sha1/issues
+
+@docs Digest
+
+
+# Creating digests
+
+@docs fromString
+
+
+# Formatting digests
+
+@docs toHex, toBase64
+
+
+# Binary data
+
+@docs fromBytes, toBytes
+
+-}
 
 import Array exposing (Array)
 import Bitwise exposing (and, complement, or, shiftLeftBy, shiftRightZfBy, xor)
@@ -11,6 +58,10 @@ import String.UTF8 as UTF8
 -- TYPES
 
 
+{-| A type to represent a message digest. `SHA1.Digest`s are equatable, and you may
+want to consider keeping any digests you need in your `Model` as `Digest`s, not
+as `String`s created by [`toHex`](#toHex) or [`toBase64`](#toBase64).
+-}
 type Digest
     = Digest Int Int Int Int Int
 
@@ -37,11 +88,28 @@ type alias DeltaState =
 -- CALCULATING
 
 
+{-| Create a digest from a `String`.
+
+    "hello world" |> SHA1.fromString |> SHA1.toHex
+    --> "2aae6c35c94fcfb415dbe95f408b9ce91ee846ed"
+
+-}
 fromString : String -> Digest
 fromString =
     UTF8.toBytes >> hashBytes
 
 
+{-| Sometimes you have binary data that's not representable in a string. Create
+a digest from the raw "bytes", i.e. a `List` of `Int`s. Any items not between 0
+and 255 are discarded.
+
+    SHA1.fromBytes [72, 105, 33, 32, 240, 159, 152, 132]
+    --> SHA1.fromString "Hi! 😄"
+
+    [0x00, 0xFF, 0x34, 0xA5] |> SHA1.fromBytes |> SHA1.toBase64
+    --> "sVQuFckyE6K3fsdLmLHmq8+J738="
+
+-}
 fromBytes : List Int -> Digest
 fromBytes =
     List.filter (\i -> i >= 0 && i <= 255) >> hashBytes
@@ -189,6 +257,21 @@ init =
 -- FORMATTING
 
 
+{-| If you need the raw digest instead of the textual representation (for
+example, if using SHA-1 as part of another algorithm), `toBytes` is what you're
+looking for!
+
+    "And the band begins to play"
+        |> SHA1.fromString
+        |> SHA1.toBytes
+    --> [ 0xF3, 0x08, 0x73, 0x13
+    --> , 0xD6, 0xBC, 0xE5, 0x5B
+    --> , 0x60, 0x0C, 0x69, 0x2F
+    --> , 0xE0, 0x92, 0xF4, 0x53
+    --> , 0x87, 0x3F, 0xAE, 0x91
+    --> ]
+
+-}
 toBytes : Digest -> List Int
 toBytes (Digest a b c d e) =
     List.concatMap wordToBytes [ a, b, c, d, e ]
@@ -203,6 +286,15 @@ wordToBytes int =
     ]
 
 
+{-| One of the two canonical ways of representing a SHA-1 digest is with 40
+hexadecimal digits.
+
+    "And our friends are all aboard"
+        |> SHA1.fromString
+        |> SHA1.toHex
+    --> "f9a0c23ddcd40f6956b0cf59cd9b8800d71de73d"
+
+-}
 toHex : Digest -> String
 toHex (Digest a b c d e) =
     [ a, b, c, d, e ]
@@ -232,6 +324,15 @@ wordToHex int =
 -- appended.
 
 
+{-| One of the two canonical ways of representing a SHA-1 digest is in a 20
+digit long Base64 binary to ASCII text encoding.
+
+    "Many more of them live next door"
+        |> SHA1.fromString
+        |> SHA1.toBase64
+    --> "jfL0oVb5xakab6BMLplGe2XPbj8="
+
+-}
 toBase64 : Digest -> String
 toBase64 (Digest a b c d e) =
     [ a |> shiftRightZfBy 8
@@ -241,30 +342,27 @@ toBase64 (Digest a b c d e) =
     , d |> shiftRightZfBy 8
     , (d |> and 0xFF |> shiftLeftBy 16) + (e |> shiftRightZfBy 16)
     , e |> and 0xFFFF |> shiftLeftBy 8
-    , -1
     ]
         |> List.map intToBase64
         |> String.concat
+        |> String.dropRight 1
+        |> (\s -> s ++ "=")
 
 
 
--- Assumes Int is 24-bit positive integer, or -1 to mean single pad char
+-- Converts the least-significant 24 bits to 4 base64 chars
 
 
 intToBase64 : Int -> String
 intToBase64 int =
-    if int == -1 then
-        "="
-
-    else
-        [ int |> shiftRightZfBy 18 |> and 0x3F
-        , int |> shiftRightZfBy 12 |> and 0x3F
-        , int |> shiftRightZfBy 6 |> and 0x3F
-        , int |> and 0x3F
-        ]
-            |> List.map Array.get
-            |> List.filterMap ((|>) base64Chars)
-            |> String.fromList
+    [ int |> shiftRightZfBy 18 |> and 0x3F
+    , int |> shiftRightZfBy 12 |> and 0x3F
+    , int |> shiftRightZfBy 6 |> and 0x3F
+    , int |> and 0x3F
+    ]
+        |> List.map Array.get
+        |> List.filterMap ((|>) base64Chars)
+        |> String.fromList
 
 
 base64Chars : Array Char
