@@ -1,4 +1,4 @@
-module SHA1 exposing (Digest, hash, toBase64, toHex)
+module SHA1 exposing (Digest, fromBytes, fromString, toBase64, toBytes, toHex)
 
 import Array exposing (Array)
 import Bitwise exposing (and, complement, or, shiftLeftBy, shiftRightZfBy, xor)
@@ -33,9 +33,18 @@ type alias DeltaState =
     }
 
 
-hash : String -> Digest
-hash =
+
+-- CALCULATING
+
+
+fromString : String -> Digest
+fromString =
     UTF8.toBytes >> hashBytes
+
+
+fromBytes : List Int -> Digest
+fromBytes =
+    List.filter (\i -> i >= 0 && i <= 255) >> hashBytes
 
 
 hashBytes : List Int -> Digest
@@ -180,6 +189,20 @@ init =
 -- FORMATTING
 
 
+toBytes : Digest -> List Int
+toBytes (Digest a b c d e) =
+    List.concatMap wordToBytes [ a, b, c, d, e ]
+
+
+wordToBytes : Int -> List Int
+wordToBytes int =
+    [ int |> shiftRightZfBy 0x18 |> and 0xFF
+    , int |> shiftRightZfBy 0x10 |> and 0xFF
+    , int |> shiftRightZfBy 0x08 |> and 0xFF
+    , int |> and 0xFF
+    ]
+
+
 toHex : Digest -> String
 toHex (Digest a b c d e) =
     [ a, b, c, d, e ]
@@ -222,6 +245,10 @@ toBase64 (Digest a b c d e) =
     ]
         |> List.map intToBase64
         |> String.concat
+
+
+
+-- Assumes Int is 24-bit positive integer, or -1 to mean single pad char
 
 
 intToBase64 : Int -> String
