@@ -34,3 +34,11 @@ SHA1.toBytes digest1
 --> , 0x47, 0x39, 0xE2, 0x90, 0x4D
 --> ]
 ```
+
+## Validation
+
+Not officially validated through [CAVP](http://csrc.nist.gov/groups/STM/cavp/)/[CMVP](https://csrc.nist.gov/groups/STM/cmvp/).
+
+Tested against hashes in [tests/Tests.elm](https://github.com/TSFoster/elm-sha1/blob/master/tests/Tests.elm), indirectly in [romariolopezc/elm-hmac-sha1’s tests](https://github.com/romariolopezc/elm-hmac-sha1/blob/master/tests/HmacSha1Test.elm), and personal use of and the [tests](https://github.com/TSFoster/elm-uuid/blob/2.2.0/tests/Tests.elm) for [TSFoster/elm-uuid](https://package.elm-lang.org/packages/TSFoster/elm-uuid/latest/).
+
+Please note that SHA-1 is not “[considered secure against well-funded opponents](https://en.wikipedia.org/wiki/SHA-1)”, but it does have its uses, including, but not limited to, [version 5 UUIDs](https://package.elm-lang.org/packages/TSFoster/elm-uuid/latest/UUID#childNamed).

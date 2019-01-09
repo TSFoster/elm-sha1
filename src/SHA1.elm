@@ -5,9 +5,10 @@ module SHA1 exposing
     , fromBytes, toBytes
     )
 
-{-| [SHA-1] is a [cryptographic hash function]. Although it is no longer
-considered strong enough for certain high-risk situations, it is still very
-suitable for a broad range of uses, and is a lot stronger than MD5.
+{-| [SHA-1] is a [cryptographic hash function].
+Although it is no longer considered cryptographically secure (as collisions can
+be found faster than brute force), it is still very suitable for a broad range
+of uses, and is a lot stronger than MD5.
 
 [SHA-1]: https://en.wikipedia.org/wiki/SHA-1
 [cryptographic hash function]: https://en.wikipedia.org/wiki/Cryptographic_hash_function
