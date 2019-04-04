@@ -134,7 +134,7 @@ hashBytes bytes =
         -- has to be a multiple of 64 bytes (i.e. of 512 bits).
         -- The 4 is because the bitCountInBytes is supposed to be 8 long, but it's only 4 (8 - 4 = 4)
         zeroBytesToAppend =
-            4 + 64 - modBy 64 (List.length bytes + 1 + 8)
+            4 + modBy 64 (56 - modBy 64 (byteCount + 1))
 
         bytesToAppend =
             0x80 :: List.repeat zeroBytesToAppend 0x00 ++ bitCountInBytes
