@@ -2,12 +2,22 @@
 
 Calculate SHA-1 digests in Elm.
 
-This package can take a message as a `String` or `List Int` ("bytes") calculate SHA-1 digests, and represent them in [hexadecimal], [base64] or a `List Int` (as "bytes").
+This package can take a message as a `String` or `List Int` ("bytes") calculate
+SHA-1 digests, and represent them in [hexadecimal], [base64] or a `List Int` (as
+"bytes").
 
 [hexadecimal]: https://en.wikipedia.org/wiki/Hexadecimal
 [base64]: https://en.wikipedia.org/wiki/Base64
 
 # [Documentation](https://package.elm-lang.org/packages/TSFoster/elm-sha1/latest/SHA1)
+
+## IMPORTANT: Incorrect calculation in older versions
+
+Please note that [there was an issue][issue-2] regarding input data of 311 bytes
+in versions 1.0.0 and 1.0.1 of this library. If you are using either of these
+versions, it is highly recommended that you upgrade as soon as possible.
+
+[issue-2]: https://github.com/TSFoster/elm-sha1/issues/2
 
 ## Examples
 
