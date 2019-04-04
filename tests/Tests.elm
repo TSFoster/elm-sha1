@@ -25,6 +25,7 @@ suite =
         ++ unicode
         ++ fromDevRandom
         ++ fromBytes
+        ++ weirdBytes
         |> List.map makeTest
         |> describe "SHA-1"
 
@@ -55,6 +56,14 @@ fromBytes : List TestCase
 fromBytes =
     [ TestCase (FromBytes (List.range 0 255)) "4916d6bdb7f78e6803698cab32d1586ea457dfc8" "SRbWvbf3jmgDaYyrMtFYbqRX38g="
     , TestCase (FromBytes (List.repeat 200000 184)) "707d33fe36b8bf5d21568058370ad9b70c5d1bfc" "cH0z/ja4v10hVoBYNwrZtwxdG/w="
+    ]
+
+
+weirdBytes : List TestCase
+weirdBytes =
+    [ TestCase (FromBytes (List.repeat 64 54 ++ List.repeat 310 46)) "08afccd24bce328ae74661653ca103df02cba690" "CK/M0kvOMornRmFlPKED3wLLppA="
+    , TestCase (FromBytes (List.repeat 64 54 ++ List.repeat 311 46)) "bd8b2089549d57a05becbace5112c2c593b1af8b" "vYsgiVSdV6Bb7LrOURLCxZOxr4s="
+    , TestCase (FromBytes (List.repeat 64 54 ++ List.repeat 312 46)) "c6045cfc2468675660d3ff788225229c6b7ab422" "xgRc/CRoZ1Zg0/94giUinGt6tCI="
     ]
 
 
