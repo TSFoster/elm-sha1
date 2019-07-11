@@ -11,13 +11,19 @@ SHA-1 digests, and represent them in [hexadecimal], [base64] or a `List Int` (as
 
 # [Documentation](https://package.elm-lang.org/packages/TSFoster/elm-sha1/latest/SHA1)
 
-## IMPORTANT: Incorrect calculation in older versions
+## IMPORTANT UPGRADE NOTES
 
-Please note that [there was an issue][issue-2] regarding input data of 311 bytes
-in versions 1.0.0 and 1.0.1 of this library. If you are using either of these
-versions, it is highly recommended that you upgrade as soon as possible.
+- **Upgrade to elm-sha1 >= v1.0.3 for use with elm v0.19.1.** An update to the
+  elm compiler to fix a [regression][issue-1945] will break versions of this
+  package before v1.0.3. Please ensure this package is updated to at least v1.0.3
+  when upgrading to elm version 0.19.1.
+
+- [There was an issue][issue-2] regarding input data of 311 bytes in versions
+  1.0.0 and 1.0.1 of this library. If you are using either of these versions, it
+  is highly recommended that you upgrade as soon as possible.
 
 [issue-2]: https://github.com/TSFoster/elm-sha1/issues/2
+[issue-1945]: https://github.com/elm/compiler/issues/1945
 
 ## Examples
 
