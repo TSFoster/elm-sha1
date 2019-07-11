@@ -49,7 +49,7 @@ hashing [elm/bytes], [let me know][issues]!
 -}
 
 import Array exposing (Array)
-import Bitwise exposing (and, complement, or, shiftLeftBy, shiftRightZfBy, xor)
+import Bitwise exposing (and, complement, or, shiftLeftBy, shiftRightZfBy)
 import Hex
 import List.Extra exposing (groupsOf, indexedFoldl)
 import String.UTF8 as UTF8
@@ -187,7 +187,7 @@ calculateDigestDeltas index int { a, b, c, d, e } =
                 )
 
             else if index < 40 then
-                ( xor b (xor c d)
+                ( Bitwise.xor b (Bitwise.xor c d)
                 , 0x6ED9EBA1
                 )
 
@@ -197,7 +197,7 @@ calculateDigestDeltas index int { a, b, c, d, e } =
                 )
 
             else
-                ( xor b (xor c d)
+                ( Bitwise.xor b (Bitwise.xor c d)
                 , 0xCA62C1D6
                 )
     in
@@ -223,7 +223,7 @@ reduceWords index words =
         val =
             [ v 3, v 8, v 14, v 16 ]
                 |> List.filterMap identity
-                |> List.foldl xor 0
+                |> List.foldl Bitwise.xor 0
                 |> rotateLeftBy 1
     in
     Array.push val words
