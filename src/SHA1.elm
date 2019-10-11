@@ -207,25 +207,65 @@ i32 =
 
 reduceBytesMessage : State -> Decoder State
 reduceBytesMessage state =
-    let
-        helper b16 b15 b14 b13 b12 b11 b10 b9 b8 b7 b6 b5 b4 b3 b2 b1 =
-            let
-                expand v =
-                    [ Bitwise.shiftRightBy 24 v |> Bitwise.and 0xFF
-                    , Bitwise.shiftRightBy 16 v |> Bitwise.and 0xFF
-                    , Bitwise.shiftRightBy 8 v |> Bitwise.and 0xFF
-                    , Bitwise.shiftRightBy 0 v |> Bitwise.and 0xFF
-                    ]
-                        |> List.reverse
+    map16 (reduceMessage_ state) i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32
 
-                chunk =
-                    [ b16, b15, b14, b13, b12, b11, b10, b9, b8, b7, b6, b5, b4, b3, b2, b1 ]
-                        |> List.concatMap expand
-                        |> List.reverse
-            in
-            reduceMessage chunk state
+
+reduceMessage_ (State (Tuple5 h0 h1 h2 h3 h4)) b16 b15 b14 b13 b12 b11 b10 b9 b8 b7 b6 b5 b4 b3 b2 b1 =
+    let
+        initialDeltaState =
+            DeltaState (Tuple5 h0 h1 h2 h3 h4)
+                |> calculateDigestDeltas 0 b1
+                |> calculateDigestDeltas 1 b2
+                |> calculateDigestDeltas 2 b3
+                |> calculateDigestDeltas 3 b4
+                |> calculateDigestDeltas 4 b5
+                |> calculateDigestDeltas 5 b6
+                |> calculateDigestDeltas 6 b7
+                |> calculateDigestDeltas 7 b8
+                |> calculateDigestDeltas 8 b9
+                |> calculateDigestDeltas 9 b10
+                |> calculateDigestDeltas 10 b11
+                |> calculateDigestDeltas 11 b12
+                |> calculateDigestDeltas 12 b13
+                |> calculateDigestDeltas 13 b14
+                |> calculateDigestDeltas 14 b15
+                |> calculateDigestDeltas 15 b16
+
+        (DeltaState (Tuple5 a b c d e)) =
+            reduceWordsHelp 0 initialDeltaState b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12 b13 b14 b15 b16
     in
-    map16 helper i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32
+    State (Tuple5 (trim (h0 + a)) (trim (h1 + b)) (trim (h2 + c)) (trim (h3 + d)) (trim (h4 + e)))
+
+
+blockSize =
+    64
+
+
+numberOfWords =
+    16
+
+
+{-| Fold over the words, keeping track of the deltas.
+
+We must keep track of the 16 most recent values, and use plain arguments for efficiency reasons.
+So in the recursion, `b16` is dropped, all the others shift one position to the left, and `value` is the final argument.
+Then the `deltaState` is also updated with the `value`.
+
+-}
+reduceWordsHelp i deltaState b16 b15 b14 b13 b12 b11 b10 b9 b8 b7 b6 b5 b4 b3 b2 b1 =
+    if (i - blockSize) < 0 then
+        let
+            value =
+                b3
+                    |> Bitwise.xor b8
+                    |> Bitwise.xor b14
+                    |> Bitwise.xor b16
+                    |> rotateLeftBy 1
+        in
+        reduceWordsHelp (i + 1) (calculateDigestDeltas (i + numberOfWords) value deltaState) b15 b14 b13 b12 b11 b10 b9 b8 b7 b6 b5 b4 b3 b2 b1 value
+
+    else
+        deltaState
 
 
 reduceMessage : List Int -> State -> State
