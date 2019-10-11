@@ -1,5 +1,6 @@
 module Tests exposing (suite)
 
+import Bitwise
 import Bytes.Encode as Encode
 import Expect exposing (Expectation)
 import Fuzz exposing (Fuzzer)
@@ -20,16 +21,89 @@ type Input
     | FromString String
 
 
+type alias Digest =
+    { a : Int, b : Int, c : Int, d : Int, e : Int }
+
+
+fuzzDigest : Fuzz.Fuzzer Digest
+fuzzDigest =
+    Fuzz.map5 Digest
+        (Fuzz.intRange 0 0xFFFFFFFF)
+        (Fuzz.intRange 0 0xFFFFFFFF)
+        (Fuzz.intRange 0 0xFFFFFFFF)
+        (Fuzz.intRange 0 0xFFFFFFFF)
+        (Fuzz.intRange 0 0xFFFFFFFF)
+
+
+bitoperations =
+    let
+        rotateLeftBy : Int -> Int -> Int
+        rotateLeftBy amount i =
+            Bitwise.or (Bitwise.shiftRightZfBy (32 - amount) i) (Bitwise.shiftLeftBy amount i)
+                |> Bitwise.shiftRightZfBy 0
+    in
+    [ fuzz (Fuzz.intRange 0 0xFFFFFFFF) "rotate left" <|
+        \value ->
+            let
+                n =
+                    3
+            in
+            value
+                |> rotateLeftBy n
+                |> rotateLeftBy (32 - n)
+                -- |> Bitwise.and 0xFFFFFFFF
+                |> Expect.equal value
+    , fuzz fuzzDigest "calculate the new a" <|
+        \{ a, b, c, d, e } ->
+            let
+                f =
+                    b
+
+                k =
+                    c
+
+                int =
+                    d
+
+                old =
+                    rotateLeftBy 5 a
+                        |> Bitwise.and 0xFFFFFFFF
+                        |> (+) f
+                        |> Bitwise.and 0xFFFFFFFF
+                        |> (+) e
+                        |> Bitwise.and 0xFFFFFFFF
+                        |> (+) k
+                        |> Bitwise.and 0xFFFFFFFF
+                        |> (+) int
+                        |> Bitwise.and 0xFFFFFFFF
+                        |> Bitwise.shiftRightZfBy 0
+
+                new =
+                    Bitwise.or (Bitwise.shiftRightZfBy (32 - 5) a) (Bitwise.shiftLeftBy 5 a)
+                                |> (+) f
+                                |> (+) e
+                                |> (+) k
+                                |> (+) int
+                                |> Bitwise.shiftRightZfBy 0
+            in
+            new
+                |> Expect.equal old
+    ]
+
+
 suite : Test
 suite =
     if True then
-        fromWikipedia
-            ++ unicode
-            ++ fromDevRandom
-            ++ fromBytes
-            ++ weirdBytes
-            |> List.map makeTest
-            |> describe "SHA-1"
+           describe "SHA-1"
+               [ fromWikipedia
+                   ++ unicode
+                   ++ fromDevRandom
+                   ++ fromBytes
+                   ++ weirdBytes
+                   |> List.map makeTest
+                   |> describe "examples"
+               , describe "bit operations" bitoperations
+               ]
 
     else
         let

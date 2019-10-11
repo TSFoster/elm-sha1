@@ -292,52 +292,29 @@ reduceMessage chunk (State (Tuple5 h0 h1 h2 h3 h4)) =
 calculateDigestDeltas : Int -> Int -> DeltaState -> DeltaState
 calculateDigestDeltas index int (DeltaState (Tuple5 a b c d e)) =
     let
+        -- benchmarks show integer division and cases on the integter are the fastest
+        which =
+            index // 20
+
         f =
-            if index < 20 then
-                or (and b c) (and (trim (complement b)) d)
+            case which of
+                0 ->
+                    or (and b c) (and (Bitwise.and 0xFFFFFFFF (complement b)) d) + 0x5A827999
 
-            else if index < 40 then
-                Bitwise.xor b (Bitwise.xor c d)
+                1 ->
+                    Bitwise.xor b (Bitwise.xor c d) + 0x6ED9EBA1
 
-            else if index < 60 then
-                or (or (and b c) (and b d)) (and c d)
+                2 ->
+                    or (or (and b c) (and b d)) (and c d) + 0x8F1BBCDC
 
-            else
-                Bitwise.xor b (Bitwise.xor c d)
-
-        k =
-            if index < 20 then
-                0x5A827999
-
-            else if index < 40 then
-                0x6ED9EBA1
-
-            else if index < 60 then
-                0x8F1BBCDC
-
-            else
-                0xCA62C1D6
+                _ ->
+                    Bitwise.xor b (Bitwise.xor c d) + 0xCA62C1D6
 
         newA =
-            rotateLeftBy 5 a
-                |> Bitwise.and 0xFFFFFFFF
-                |> (+) f
-                |> Bitwise.and 0xFFFFFFFF
-                |> (+) e
-                |> Bitwise.and 0xFFFFFFFF
-                |> (+) k
-                |> Bitwise.and 0xFFFFFFFF
-                |> (+) int
-                |> Bitwise.and 0xFFFFFFFF
+            (Bitwise.or (Bitwise.shiftRightZfBy 27 a) (Bitwise.shiftLeftBy 5 a) + f + e + int)
+                |> Bitwise.shiftRightZfBy 0
     in
-    DeltaState
-        (Tuple5
-            newA
-            a
-            (rotateLeftBy 30 b)
-            c
-            d
-        )
+    DeltaState (Tuple5 newA a (rotateLeftBy 30 b) c d)
 
 
 trim : Int -> Int
@@ -363,7 +340,8 @@ reduceWords index words =
 
 rotateLeftBy : Int -> Int -> Int
 rotateLeftBy amount i =
-    trim <| shiftRightZfBy (32 - amount) i + trim (shiftLeftBy amount i)
+    Bitwise.or (Bitwise.shiftRightZfBy (32 - amount) i) (Bitwise.shiftLeftBy amount i)
+        |> Bitwise.shiftRightZfBy 0
 
 
 wordFromInts : List Int -> Int
