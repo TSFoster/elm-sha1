@@ -292,30 +292,47 @@ reduceMessage chunk (State (Tuple5 h0 h1 h2 h3 h4)) =
 calculateDigestDeltas : Int -> Int -> DeltaState -> DeltaState
 calculateDigestDeltas index int (DeltaState (Tuple5 a b c d e)) =
     let
-        ( f, k ) =
+        f =
             if index < 20 then
-                ( or (and b c) (and (trim (complement b)) d)
-                , 0x5A827999
-                )
+                or (and b c) (and (trim (complement b)) d)
 
             else if index < 40 then
-                ( Bitwise.xor b (Bitwise.xor c d)
-                , 0x6ED9EBA1
-                )
+                Bitwise.xor b (Bitwise.xor c d)
 
             else if index < 60 then
-                ( or (or (and b c) (and b d)) (and c d)
-                , 0x8F1BBCDC
-                )
+                or (or (and b c) (and b d)) (and c d)
 
             else
-                ( Bitwise.xor b (Bitwise.xor c d)
-                , 0xCA62C1D6
-                )
+                Bitwise.xor b (Bitwise.xor c d)
+
+        k =
+            if index < 20 then
+                0x5A827999
+
+            else if index < 40 then
+                0x6ED9EBA1
+
+            else if index < 60 then
+                0x8F1BBCDC
+
+            else
+                0xCA62C1D6
+
+        newA =
+            rotateLeftBy 5 a
+                |> Bitwise.and 0xFFFFFFFF
+                |> (+) f
+                |> Bitwise.and 0xFFFFFFFF
+                |> (+) e
+                |> Bitwise.and 0xFFFFFFFF
+                |> (+) k
+                |> Bitwise.and 0xFFFFFFFF
+                |> (+) int
+                |> Bitwise.and 0xFFFFFFFF
     in
     DeltaState
         (Tuple5
-            (trim (trim (trim (trim (rotateLeftBy 5 a + f) + e) + k) + int))
+            newA
             a
             (rotateLeftBy 30 b)
             c
@@ -325,7 +342,8 @@ calculateDigestDeltas index int (DeltaState (Tuple5 a b c d e)) =
 
 trim : Int -> Int
 trim =
-    and 0xFFFFFFFF
+    -- Bitwise.shiftRightZfBy 0
+    Bitwise.and 0xFFFFFFFF
 
 
 reduceWords : Int -> Array Int -> Array Int
