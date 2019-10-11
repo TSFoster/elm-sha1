@@ -59,30 +59,24 @@ import String.UTF8 as UTF8
 -- TYPES
 
 
+type Tuple5
+    = Tuple5 Int Int Int Int Int
+
+
 {-| A type to represent a message digest. `SHA1.Digest`s are equatable, and you may
 want to consider keeping any digests you need in your `Model` as `Digest`s, not
 as `String`s created by [`toHex`](#toHex) or [`toBase64`](#toBase64).
 -}
 type Digest
-    = Digest Int Int Int Int Int
+    = Digest Tuple5
 
 
-type alias State =
-    { h0 : Int
-    , h1 : Int
-    , h2 : Int
-    , h3 : Int
-    , h4 : Int
-    }
+type State
+    = State Tuple5
 
 
-type alias DeltaState =
-    { a : Int
-    , b : Int
-    , c : Int
-    , d : Int
-    , e : Int
-    }
+type DeltaState
+    = DeltaState Tuple5
 
 
 
@@ -148,16 +142,13 @@ hashBytes bytes =
         hashState =
             List.foldl reduceMessage init chunks
     in
-    finalDigest hashState
-
-
-finalDigest : State -> Digest
-finalDigest { h0, h1, h2, h3, h4 } =
-    Digest h0 h1 h2 h3 h4
+    case hashState of
+        State digest ->
+            Digest digest
 
 
 reduceMessage : List Int -> State -> State
-reduceMessage chunk { h0, h1, h2, h3, h4 } =
+reduceMessage chunk (State (Tuple5 h0 h1 h2 h3 h4)) =
     let
         words =
             chunk
@@ -166,19 +157,19 @@ reduceMessage chunk { h0, h1, h2, h3, h4 } =
                 |> Array.fromList
 
         initialDeltas =
-            DeltaState h0 h1 h2 h3 h4
+            DeltaState (Tuple5 h0 h1 h2 h3 h4)
 
-        { a, b, c, d, e } =
+        (DeltaState (Tuple5 a b c d e)) =
             List.Extra.initialize 64 ((+) 16)
                 |> List.foldl reduceWords words
                 |> Array.toList
                 |> indexedFoldl calculateDigestDeltas initialDeltas
     in
-    State (trim (h0 + a)) (trim (h1 + b)) (trim (h2 + c)) (trim (h3 + d)) (trim (h4 + e))
+    State (Tuple5 (trim (h0 + a)) (trim (h1 + b)) (trim (h2 + c)) (trim (h3 + d)) (trim (h4 + e)))
 
 
 calculateDigestDeltas : Int -> Int -> DeltaState -> DeltaState
-calculateDigestDeltas index int { a, b, c, d, e } =
+calculateDigestDeltas index int (DeltaState (Tuple5 a b c d e)) =
     let
         ( f, k ) =
             if index < 20 then
@@ -201,12 +192,14 @@ calculateDigestDeltas index int { a, b, c, d, e } =
                 , 0xCA62C1D6
                 )
     in
-    { a = trim (trim (trim (trim (rotateLeftBy 5 a + f) + e) + k) + int)
-    , b = a
-    , c = rotateLeftBy 30 b
-    , d = c
-    , e = d
-    }
+    DeltaState
+        (Tuple5
+            (trim (trim (trim (trim (rotateLeftBy 5 a + f) + e) + k) + int))
+            a
+            (rotateLeftBy 30 b)
+            c
+            d
+        )
 
 
 trim : Int -> Int
@@ -251,7 +244,7 @@ wordFromInts ints =
 
 init : State
 init =
-    State 0x67452301 0xEFCDAB89 0x98BADCFE 0x10325476 0xC3D2E1F0
+    State (Tuple5 0x67452301 0xEFCDAB89 0x98BADCFE 0x10325476 0xC3D2E1F0)
 
 
 
@@ -274,7 +267,7 @@ looking for!
 
 -}
 toBytes : Digest -> List Int
-toBytes (Digest a b c d e) =
+toBytes (Digest (Tuple5 a b c d e)) =
     List.concatMap wordToBytes [ a, b, c, d, e ]
 
 
@@ -297,7 +290,7 @@ hexadecimal digits.
 
 -}
 toHex : Digest -> String
-toHex (Digest a b c d e) =
+toHex (Digest (Tuple5 a b c d e)) =
     [ a, b, c, d, e ]
         |> List.map wordToHex
         |> String.concat
@@ -335,7 +328,7 @@ digit long Base64 binary to ASCII text encoding.
 
 -}
 toBase64 : Digest -> String
-toBase64 (Digest a b c d e) =
+toBase64 (Digest (Tuple5 a b c d e)) =
     [ a |> shiftRightZfBy 8
     , (a |> and 0xFF |> shiftLeftBy 16) + (b |> shiftRightZfBy 16)
     , (b |> and 0xFFFF |> shiftLeftBy 8) + (c |> shiftRightZfBy 24)
