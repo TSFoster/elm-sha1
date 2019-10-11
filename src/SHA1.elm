@@ -3,6 +3,7 @@ module SHA1 exposing
     , fromString
     , toHex, toBase64
     , fromBytes, toBytes
+    , fromByte
     )
 
 {-| [SHA-1] is a [cryptographic hash function].
@@ -148,6 +149,83 @@ hashBytes bytes =
     case hashState of
         State digest ->
             Digest digest
+
+
+fromByte : Bytes -> Digest
+fromByte =
+    hashBytesValue
+
+
+hashBytesValue : Bytes -> Digest
+hashBytesValue bytes =
+    let
+        byteCount =
+            Bytes.width bytes
+
+        -- The full message (message + 1 byte for message end flag (0x80) + 8 bytes for message length)
+        -- has to be a multiple of 64 bytes (i.e. of 512 bits).
+        -- The 4 is because the bitCountInBytes is supposed to be 8 long, but it's only 4 (8 - 4 = 4)
+        zeroBytesToAppend =
+            4 + modBy 64 (56 - modBy 64 (byteCount + 1))
+
+        message =
+            Encode.encode
+                (Encode.sequence
+                    [ Encode.bytes bytes
+                    , Encode.unsignedInt8 0x80
+                    , Encode.sequence (List.repeat zeroBytesToAppend (Encode.unsignedInt8 0))
+
+                    -- The 3s are to convert byte count to bit count (2^3 = 8)
+                    , byteCount |> shiftRightZfBy (0x18 - 3) |> and 0xFF |> Encode.unsignedInt8
+                    , byteCount |> shiftRightZfBy (0x10 - 3) |> and 0xFF |> Encode.unsignedInt8
+                    , byteCount |> shiftRightZfBy (0x08 - 3) |> and 0xFF |> Encode.unsignedInt8
+                    , byteCount |> shiftLeftBy 3 |> and 0xFF |> Encode.unsignedInt8
+                    ]
+                )
+
+        numberOfChunks =
+            Bytes.width message // 64
+
+        hashState =
+            iterate numberOfChunks reduceBytesMessage init
+    in
+    case Decode.decode hashState message of
+        Just (State digest) ->
+            Digest digest
+
+        Nothing ->
+            -- impossible case
+            case init of
+                State digest ->
+                    Digest digest
+
+
+i32 : Decoder Int
+i32 =
+    Decode.unsignedInt32 BE
+
+
+reduceBytesMessage : State -> Decoder State
+reduceBytesMessage state =
+    let
+        helper b16 b15 b14 b13 b12 b11 b10 b9 b8 b7 b6 b5 b4 b3 b2 b1 =
+            let
+                expand v =
+                    [ Bitwise.shiftRightBy 24 v |> Bitwise.and 0xFF
+                    , Bitwise.shiftRightBy 16 v |> Bitwise.and 0xFF
+                    , Bitwise.shiftRightBy 8 v |> Bitwise.and 0xFF
+                    , Bitwise.shiftRightBy 0 v |> Bitwise.and 0xFF
+                    ]
+                        |> List.reverse
+
+                chunk =
+                    [ b16, b15, b14, b13, b12, b11, b10, b9, b8, b7, b6, b5, b4, b3, b2, b1 ]
+                        |> List.concatMap expand
+                        |> List.reverse
+            in
+            reduceMessage chunk state
+    in
+    map16 helper i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32
 
 
 reduceMessage : List Int -> State -> State

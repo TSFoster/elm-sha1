@@ -1,5 +1,6 @@
 module Tests exposing (suite)
 
+import Bytes.Encode as Encode
 import Expect exposing (Expectation)
 import Fuzz exposing (Fuzzer)
 import Hex
@@ -21,13 +22,37 @@ type Input
 
 suite : Test
 suite =
-    fromWikipedia
-        ++ unicode
-        ++ fromDevRandom
-        ++ fromBytes
-        ++ weirdBytes
-        |> List.map makeTest
-        |> describe "SHA-1"
+    if True then
+        fromWikipedia
+            ++ unicode
+            ++ fromDevRandom
+            ++ fromBytes
+            ++ weirdBytes
+            |> List.map makeTest
+            |> describe "SHA-1"
+
+    else
+        let
+            str =
+                "fox"
+
+            hex =
+                "ff0f0a8b656f0b44c26933acd2e367b6c1211290"
+
+            ( description, digest, encoder ) =
+                ( "String: " ++ str, SHA1.fromString str, Encode.string str )
+        in
+        describe description
+            [ test "Hex representation" <|
+                \_ -> Expect.equal (SHA1.toHex digest) hex
+            , test "with Bytes" <|
+                \_ ->
+                    encoder
+                        |> Encode.encode
+                        |> SHA1.fromByte
+                        |> SHA1.toHex
+                        |> Expect.equal hex
+            ]
 
 
 fromWikipedia : List TestCase
@@ -70,13 +95,13 @@ weirdBytes =
 makeTest : TestCase -> Test
 makeTest (TestCase input hex base64) =
     let
-        ( description, digest ) =
+        ( description, digest, encoder ) =
             case input of
                 FromString str ->
-                    ( "String: " ++ str, SHA1.fromString str )
+                    ( "String: " ++ str, SHA1.fromString str, Encode.string str )
 
                 FromBytes bytes ->
-                    ( String.fromInt (List.length bytes) ++ " bytes", SHA1.fromBytes bytes )
+                    ( String.fromInt (List.length bytes) ++ " bytes", SHA1.fromBytes bytes, Encode.sequence (List.map Encode.unsignedInt8 bytes) )
     in
     describe description
         [ test "Hex representation" <|
@@ -88,5 +113,12 @@ makeTest (TestCase input hex base64) =
                 SHA1.toBytes digest
                     |> List.map (Hex.toString >> String.padLeft 2 '0')
                     |> String.concat
+                    |> Expect.equal hex
+        , test "with Bytes" <|
+            \_ ->
+                encoder
+                    |> Encode.encode
+                    |> SHA1.fromByte
+                    |> SHA1.toHex
                     |> Expect.equal hex
         ]
