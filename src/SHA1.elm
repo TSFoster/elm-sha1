@@ -50,6 +50,9 @@ hashing [elm/bytes], [let me know][issues]!
 
 import Array exposing (Array)
 import Bitwise exposing (and, complement, or, shiftLeftBy, shiftRightZfBy)
+import Bytes exposing (Bytes, Endianness(..))
+import Bytes.Decode as Decode exposing (Decoder, Step(..))
+import Bytes.Encode as Encode
 import Hex
 import List.Extra exposing (groupsOf, indexedFoldl)
 import String.UTF8 as UTF8
@@ -364,3 +367,54 @@ base64Chars =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
         |> String.toList
         |> Array.fromList
+
+
+
+-- HELPERS
+
+
+{-| The most efficient implmenentation for `map16`, given that `Decode.map5` is the highest defined in Kernel code
+-}
+map16 :
+    (b1 -> b2 -> b3 -> b4 -> b5 -> b6 -> b7 -> b8 -> b9 -> b10 -> b11 -> b12 -> b13 -> b14 -> b15 -> b16 -> result)
+    -> Decoder b1
+    -> Decoder b2
+    -> Decoder b3
+    -> Decoder b4
+    -> Decoder b5
+    -> Decoder b6
+    -> Decoder b7
+    -> Decoder b8
+    -> Decoder b9
+    -> Decoder b10
+    -> Decoder b11
+    -> Decoder b12
+    -> Decoder b13
+    -> Decoder b14
+    -> Decoder b15
+    -> Decoder b16
+    -> Decoder result
+map16 f b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12 b13 b14 b15 b16 =
+    Decode.succeed f
+        |> Decode.map5 (\a b c d e -> e d c b a) b4 b3 b2 b1
+        |> Decode.map5 (\a b c d e -> e d c b a) b8 b7 b6 b5
+        |> Decode.map5 (\a b c d e -> e d c b a) b12 b11 b10 b9
+        |> Decode.map5 (\a b c d e -> e d c b a) b16 b15 b14 b13
+
+
+{-| Iterate a decoder `n` times
+
+Needs some care to not run into stack overflow. This definition is nicely tail-recursive.
+
+-}
+iterate : Int -> (a -> Decoder a) -> a -> Decoder a
+iterate n step initial =
+    iterateHelp n (\value -> Decode.andThen step value) (Decode.succeed initial)
+
+
+iterateHelp n step initial =
+    if n > 0 then
+        iterateHelp (n - 1) step (step initial)
+
+    else
+        initial
