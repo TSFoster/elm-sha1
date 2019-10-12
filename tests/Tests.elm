@@ -101,6 +101,7 @@ suite =
     if True then
         describe "SHA-1"
             [ describe "from bytes" fromBytes
+            , describe "bit operations" bitoperations
             , fromWikipedia
                 ++ unicode
                 ++ fromDevRandom

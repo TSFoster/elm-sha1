@@ -50,6 +50,7 @@ hashing [elm/bytes], [let me know][issues]!
 -}
 
 import Array exposing (Array)
+import Base64
 import Bitwise exposing (and, complement, or, shiftLeftBy, shiftRightZfBy)
 import Bytes exposing (Bytes, Endianness(..))
 import Bytes.Decode as Decode exposing (Decoder, Step(..))
@@ -324,23 +325,25 @@ hexadecimal digits.
 -}
 toHex : Digest -> String
 toHex (Digest (Tuple5 a b c d e)) =
-    [ a, b, c, d, e ]
-        |> List.map wordToHex
-        |> String.concat
+    wordToHex a ++ wordToHex b ++ wordToHex c ++ wordToHex d ++ wordToHex e
 
 
 wordToHex : Int -> String
 wordToHex int =
     let
         left =
-            int |> shiftRightZfBy 0x10
+            int
+                |> shiftRightZfBy 0x10
+                |> Hex.toString
+                |> String.padLeft 4 '0'
 
         right =
-            int |> and 0xFFFF
+            int
+                |> and 0xFFFF
+                |> Hex.toString
+                |> String.padLeft 4 '0'
     in
-    [ left, right ]
-        |> List.map (Hex.toString >> String.padLeft 4 '0')
-        |> String.concat
+    left ++ right
 
 
 
@@ -362,41 +365,20 @@ digit long Base64 binary to ASCII text encoding.
 -}
 toBase64 : Digest -> String
 toBase64 (Digest (Tuple5 a b c d e)) =
-    [ a |> shiftRightZfBy 8
-    , (a |> and 0xFF |> shiftLeftBy 16) + (b |> shiftRightZfBy 16)
-    , (b |> and 0xFFFF |> shiftLeftBy 8) + (c |> shiftRightZfBy 24)
-    , c |> and 0x00FFFFFF
-    , d |> shiftRightZfBy 8
-    , (d |> and 0xFF |> shiftLeftBy 16) + (e |> shiftRightZfBy 16)
-    , e |> and 0xFFFF |> shiftLeftBy 8
-    ]
-        |> List.map intToBase64
-        |> String.concat
-        |> String.dropRight 1
-        |> (\s -> s ++ "=")
-
-
-
--- Converts the least-significant 24 bits to 4 base64 chars
-
-
-intToBase64 : Int -> String
-intToBase64 int =
-    [ int |> shiftRightZfBy 18 |> and 0x3F
-    , int |> shiftRightZfBy 12 |> and 0x3F
-    , int |> shiftRightZfBy 6 |> and 0x3F
-    , int |> and 0x3F
-    ]
-        |> List.map Array.get
-        |> List.filterMap ((|>) base64Chars)
-        |> String.fromList
-
-
-base64Chars : Array Char
-base64Chars =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
-        |> String.toList
-        |> Array.fromList
+    let
+        buffer =
+            [ Encode.unsignedInt32 BE a
+            , Encode.unsignedInt32 BE b
+            , Encode.unsignedInt32 BE c
+            , Encode.unsignedInt32 BE d
+            , Encode.unsignedInt32 BE e
+            ]
+    in
+    buffer
+        |> Encode.sequence
+        |> Encode.encode
+        |> Base64.fromBytes
+        |> Maybe.withDefault ""
 
 
 
