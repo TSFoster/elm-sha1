@@ -60,6 +60,20 @@ import String.UTF8 as UTF8
 
 
 
+-- CONSTANTS
+
+
+blockSize : Int
+blockSize =
+    64
+
+
+numberOfWords : Int
+numberOfWords =
+    16
+
+
+
 -- TYPES
 
 
@@ -95,7 +109,6 @@ type DeltaState
 -}
 fromString : String -> Digest
 fromString =
-    -- UTF8.toBytes >> hashBytes
     hashBytesValue << Encode.encode << Encode.string
 
 
@@ -112,51 +125,11 @@ and 255 are discarded.
 -}
 fromBytes : List Int -> Digest
 fromBytes input =
-    let
-        encode =
-            Encode.encode << Encode.sequence << List.map Encode.unsignedInt8
-    in
-    -- List.filter (\i -> i >= 0 && i <= 255) input |> hashBytes
     input
-        |> encode
+        |> List.map Encode.unsignedInt8
+        |> Encode.sequence
+        |> Encode.encode
         |> hashBytesValue
-
-
-hashBytes : List Int -> Digest
-hashBytes bytes =
-    let
-        byteCount =
-            List.length bytes
-
-        -- The 3s are to convert byte count to bit count (2^3 = 8)
-        bitCountInBytes =
-            [ byteCount |> shiftRightZfBy (0x18 - 3) |> and 0xFF
-            , byteCount |> shiftRightZfBy (0x10 - 3) |> and 0xFF
-            , byteCount |> shiftRightZfBy (0x08 - 3) |> and 0xFF
-            , byteCount |> shiftLeftBy 3 |> and 0xFF
-            ]
-
-        -- The full message (message + 1 byte for message end flag (0x80) + 8 bytes for message length)
-        -- has to be a multiple of 64 bytes (i.e. of 512 bits).
-        -- The 4 is because the bitCountInBytes is supposed to be 8 long, but it's only 4 (8 - 4 = 4)
-        zeroBytesToAppend =
-            4 + modBy 64 (56 - modBy 64 (byteCount + 1))
-
-        bytesToAppend =
-            0x80 :: List.repeat zeroBytesToAppend 0x00 ++ bitCountInBytes
-
-        message =
-            bytes ++ bytesToAppend
-
-        chunks =
-            groupsOf 64 message
-
-        hashState =
-            List.foldl reduceMessage init chunks
-    in
-    case hashState of
-        State digest ->
-            Digest digest
 
 
 fromByte : Bytes -> Digest
@@ -195,7 +168,7 @@ hashBytesValue bytes =
             Bytes.width message // 64
 
         hashState =
-            iterate numberOfChunks reduceBytesMessage init
+            iterate numberOfChunks reduceBytesMessage initialState
     in
     case Decode.decode hashState message of
         Just (State digest) ->
@@ -203,7 +176,7 @@ hashBytesValue bytes =
 
         Nothing ->
             -- impossible case
-            case init of
+            case initialState of
                 State digest ->
                     Digest digest
 
@@ -245,14 +218,6 @@ reduceMessage_ (State (Tuple5 h0 h1 h2 h3 h4)) b16 b15 b14 b13 b12 b11 b10 b9 b8
     State (Tuple5 (trim (h0 + a)) (trim (h1 + b)) (trim (h2 + c)) (trim (h3 + d)) (trim (h4 + e)))
 
 
-blockSize =
-    64
-
-
-numberOfWords =
-    16
-
-
 {-| Fold over the words, keeping track of the deltas.
 
 We must keep track of the 16 most recent values, and use plain arguments for efficiency reasons.
@@ -276,36 +241,12 @@ reduceWordsHelp i deltaState b16 b15 b14 b13 b12 b11 b10 b9 b8 b7 b6 b5 b4 b3 b2
         deltaState
 
 
-reduceMessage : List Int -> State -> State
-reduceMessage chunk (State (Tuple5 h0 h1 h2 h3 h4)) =
-    let
-        words =
-            chunk
-                |> groupsOf 4
-                |> List.map wordFromInts
-                |> Array.fromList
-
-        initialDeltas =
-            DeltaState (Tuple5 h0 h1 h2 h3 h4)
-
-        (DeltaState (Tuple5 a b c d e)) =
-            List.Extra.initialize 64 ((+) 16)
-                |> List.foldl reduceWords words
-                |> Array.toList
-                |> indexedFoldl calculateDigestDeltas initialDeltas
-    in
-    State (Tuple5 (trim (h0 + a)) (trim (h1 + b)) (trim (h2 + c)) (trim (h3 + d)) (trim (h4 + e)))
-
-
 calculateDigestDeltas : Int -> Int -> DeltaState -> DeltaState
 calculateDigestDeltas index int (DeltaState (Tuple5 a b c d e)) =
     let
         -- benchmarks show integer division and cases on the integter are the fastest
-        which =
-            index // 20
-
         f =
-            case which of
+            case index // 20 of
                 0 ->
                     or (and b c) (and (Bitwise.and 0xFFFFFFFF (complement b)) d) + 0x5A827999
 
@@ -327,23 +268,7 @@ calculateDigestDeltas index int (DeltaState (Tuple5 a b c d e)) =
 
 trim : Int -> Int
 trim =
-    -- Bitwise.shiftRightZfBy 0
     Bitwise.and 0xFFFFFFFF
-
-
-reduceWords : Int -> Array Int -> Array Int
-reduceWords index words =
-    let
-        v i =
-            Array.get (index - i) words
-
-        val =
-            [ v 3, v 8, v 14, v 16 ]
-                |> List.filterMap identity
-                |> List.foldl Bitwise.xor 0
-                |> rotateLeftBy 1
-    in
-    Array.push val words
 
 
 rotateLeftBy : Int -> Int -> Int
@@ -352,23 +277,8 @@ rotateLeftBy amount i =
         |> Bitwise.shiftRightZfBy 0
 
 
-wordFromInts : List Int -> Int
-wordFromInts ints =
-    case ints of
-        a :: b :: c :: d :: [] ->
-            List.foldl or
-                d
-                [ shiftLeftBy 0x08 c
-                , shiftLeftBy 0x10 b
-                , shiftLeftBy 0x18 a
-                ]
-
-        _ ->
-            0
-
-
-init : State
-init =
+initialState : State
+initialState =
     State (Tuple5 0x67452301 0xEFCDAB89 0x98BADCFE 0x10325476 0xC3D2E1F0)
 
 

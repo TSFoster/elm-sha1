@@ -98,7 +98,7 @@ x =
 
 suite : Test
 suite =
-    if False then
+    if True then
         describe "SHA-1"
             [ describe "from bytes" fromBytes
             , fromWikipedia
