@@ -166,6 +166,7 @@ hashBytesValue bytes =
         numberOfChunks =
             Bytes.width message // 64
 
+        hashState : Decoder State
         hashState =
             iterate numberOfChunks reduceBytesMessage initialState
     in
@@ -247,13 +248,13 @@ calculateDigestDeltas index int (DeltaState (Tuple5 a b c d e)) =
         f =
             case index // 20 of
                 0 ->
-                    or (and b c) (and (Bitwise.and 0xFFFFFFFF (complement b)) d) + 0x5A827999
+                    or (and b c) (and (complement b) d) + 0x5A827999
 
                 1 ->
                     Bitwise.xor b (Bitwise.xor c d) + 0x6ED9EBA1
 
                 2 ->
-                    or (or (and b c) (and b d)) (and c d) + 0x8F1BBCDC
+                    or (and b (or c d)) (and c d) + 0x8F1BBCDC
 
                 _ ->
                     Bitwise.xor b (Bitwise.xor c d) + 0xCA62C1D6
@@ -430,3 +431,4 @@ iterateHelp n step initial =
 
     else
         initial
+
