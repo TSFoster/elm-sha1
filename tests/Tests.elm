@@ -1,6 +1,7 @@
 module Tests exposing (suite)
 
 import Bitwise
+import Bytes
 import Bytes.Encode as Encode
 import Expect exposing (Expectation)
 import Fuzz exposing (Fuzzer)
@@ -80,30 +81,57 @@ bitoperations =
 
                 new =
                     Bitwise.or (Bitwise.shiftRightZfBy (32 - 5) a) (Bitwise.shiftLeftBy 5 a)
-                                |> (+) f
-                                |> (+) e
-                                |> (+) k
-                                |> (+) int
-                                |> Bitwise.shiftRightZfBy 0
+                        |> (+) f
+                        |> (+) e
+                        |> (+) k
+                        |> (+) int
+                        |> Bitwise.shiftRightZfBy 0
             in
             new
                 |> Expect.equal old
     ]
 
 
+x =
+    200000
+
+
 suite : Test
 suite =
-    if True then
-           describe "SHA-1"
-               [ fromWikipedia
-                   ++ unicode
-                   ++ fromDevRandom
-                   ++ fromBytes
-                   ++ weirdBytes
-                   |> List.map makeTest
-                   |> describe "examples"
-               , describe "bit operations" bitoperations
-               ]
+    if False then
+        describe "SHA-1"
+            [ describe "from bytes" fromBytes
+            , fromWikipedia
+                ++ unicode
+                ++ fromDevRandom
+                ++ weirdBytes
+                |> List.map makeTest
+                |> describe "examples"
+            ]
+
+    else if True then
+        let
+            foo i =
+                test ("with Bytes " ++ String.fromInt i) <|
+                    \_ ->
+                        let
+                            hex =
+                                "707d33fe36b8bf5d21568058370ad9b70c5d1bfc"
+
+                            data =
+                                List.repeat x 184
+                        in
+                        data
+                            |> List.map Encode.unsignedInt8
+                            |> Encode.sequence
+                            |> Encode.encode
+                            |> SHA1.fromByte
+                            |> SHA1.toHex
+                            |> Expect.equal hex
+        in
+        List.repeat 10 foo
+            |> List.indexedMap (\i f -> f i)
+            |> describe "bytes test"
 
     else
         let
@@ -151,10 +179,10 @@ fromDevRandom =
     ]
 
 
-fromBytes : List TestCase
+fromBytes : List Test
 fromBytes =
-    [ TestCase (FromBytes (List.range 0 255)) "4916d6bdb7f78e6803698cab32d1586ea457dfc8" "SRbWvbf3jmgDaYyrMtFYbqRX38g="
-    , TestCase (FromBytes (List.repeat 200000 184)) "707d33fe36b8bf5d21568058370ad9b70c5d1bfc" "cH0z/ja4v10hVoBYNwrZtwxdG/w="
+    [ makeTestHelp (FromBytes (List.range 0 255)) "4916d6bdb7f78e6803698cab32d1586ea457dfc8" "SRbWvbf3jmgDaYyrMtFYbqRX38g="
+    , makeTestHelp (FromBytes (List.repeat x 184)) "707d33fe36b8bf5d21568058370ad9b70c5d1bfc" "cH0z/ja4v10hVoBYNwrZtwxdG/w="
     ]
 
 
@@ -168,14 +196,22 @@ weirdBytes =
 
 makeTest : TestCase -> Test
 makeTest (TestCase input hex base64) =
+    makeTestHelp input hex base64
+
+
+makeTestHelp input hex base64 =
     let
-        ( description, digest, encoder ) =
+        ( description, digest ) =
             case input of
                 FromString str ->
-                    ( "String: " ++ str, SHA1.fromString str, Encode.string str )
+                    ( "String: " ++ str
+                    , SHA1.fromString str
+                    )
 
                 FromBytes bytes ->
-                    ( String.fromInt (List.length bytes) ++ " bytes", SHA1.fromBytes bytes, Encode.sequence (List.map Encode.unsignedInt8 bytes) )
+                    ( String.fromInt (List.length bytes) ++ " bytes"
+                    , SHA1.fromBytes bytes
+                    )
     in
     describe description
         [ test "Hex representation" <|
@@ -188,11 +224,22 @@ makeTest (TestCase input hex base64) =
                     |> List.map (Hex.toString >> String.padLeft 2 '0')
                     |> String.concat
                     |> Expect.equal hex
-        , test "with Bytes" <|
-            \_ ->
-                encoder
-                    |> Encode.encode
-                    |> SHA1.fromByte
-                    |> SHA1.toHex
-                    |> Expect.equal hex
+
+        {-
+           , test "with Bytes" <|
+               \_ ->
+                   let
+                       encoder =
+                           case input of
+                               FromString str ->
+                                   Encode.encode <| Encode.string str
+
+                               FromBytes bytes ->
+                                   Encode.encode <| Encode.sequence (List.map Encode.unsignedInt8 bytes)
+                   in
+                   encoder
+                       |> SHA1.fromByte
+                       |> SHA1.toHex
+                       |> Expect.equal hex
+        -}
         ]

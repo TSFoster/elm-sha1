@@ -95,7 +95,8 @@ type DeltaState
 -}
 fromString : String -> Digest
 fromString =
-    UTF8.toBytes >> hashBytes
+    -- UTF8.toBytes >> hashBytes
+    hashBytesValue << Encode.encode << Encode.string
 
 
 {-| Sometimes you have binary data that's not representable in a string. Create
@@ -110,8 +111,15 @@ and 255 are discarded.
 
 -}
 fromBytes : List Int -> Digest
-fromBytes =
-    List.filter (\i -> i >= 0 && i <= 255) >> hashBytes
+fromBytes input =
+    let
+        encode =
+            Encode.encode << Encode.sequence << List.map Encode.unsignedInt8
+    in
+    -- List.filter (\i -> i >= 0 && i <= 255) input |> hashBytes
+    input
+        |> encode
+        |> hashBytesValue
 
 
 hashBytes : List Int -> Digest
