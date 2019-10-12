@@ -11,9 +11,7 @@
     "dependencies": {
         "elm/bytes": "1.0.8 <= v < 2.0.0",
         "elm/core": "1.0.2 <= v < 2.0.0",
-        "elm-community/list-extra": "8.0.0 <= v < 9.0.0",
-        "rtfeldman/elm-hex": "1.0.0 <= v < 2.0.0",
-        "zwilias/elm-utf-tools": "2.0.1 <= v < 3.0.0"
+        "rtfeldman/elm-hex": "1.0.0 <= v < 2.0.0"
     },
     "test-dependencies": {
         "elm/regex": "1.0.0 <= v < 2.0.0",

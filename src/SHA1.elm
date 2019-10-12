@@ -55,8 +55,6 @@ import Bytes exposing (Bytes, Endianness(..))
 import Bytes.Decode as Decode exposing (Decoder, Step(..))
 import Bytes.Encode as Encode
 import Hex
-import List.Extra exposing (groupsOf, indexedFoldl)
-import String.UTF8 as UTF8
 
 
 
