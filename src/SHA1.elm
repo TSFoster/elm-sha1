@@ -188,13 +188,13 @@ i32 =
 
 reduceBytesMessage : State -> Decoder State
 reduceBytesMessage state =
-    map16 (reduceMessage_ state) i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32
+    map16 (reduceMessage state) i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32
 
 
-reduceMessage_ (State (Tuple5 h0 h1 h2 h3 h4)) b16 b15 b14 b13 b12 b11 b10 b9 b8 b7 b6 b5 b4 b3 b2 b1 =
+reduceMessage (State ((Tuple5 h0 h1 h2 h3 h4) as initial)) b16 b15 b14 b13 b12 b11 b10 b9 b8 b7 b6 b5 b4 b3 b2 b1 =
     let
         initialDeltaState =
-            DeltaState (Tuple5 h0 h1 h2 h3 h4)
+            DeltaState initial
                 |> calculateDigestDeltas 0 b1
                 |> calculateDigestDeltas 1 b2
                 |> calculateDigestDeltas 2 b3
@@ -215,10 +215,10 @@ reduceMessage_ (State (Tuple5 h0 h1 h2 h3 h4)) b16 b15 b14 b13 b12 b11 b10 b9 b8
         (DeltaState (Tuple5 a b c d e)) =
             reduceWordsHelp 0 initialDeltaState b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12 b13 b14 b15 b16
     in
-    State (Tuple5 (trim (h0 + a)) (trim (h1 + b)) (trim (h2 + c)) (trim (h3 + d)) (trim (h4 + e)))
+    State (Tuple5 (h0 + a) (h1 + b) (h2 + c) (h3 + d) (h4 + e))
 
 
-{-| Fold over the words, keeping track of the deltas.
+{-| Fold over the words, calculate the delta and combine with the delta state.
 
 We must keep track of the 16 most recent values, and use plain arguments for efficiency reasons.
 So in the recursion, `b16` is dropped, all the others shift one position to the left, and `value` is the final argument.
@@ -259,16 +259,13 @@ calculateDigestDeltas index int (DeltaState (Tuple5 a b c d e)) =
                 _ ->
                     Bitwise.xor b (Bitwise.xor c d) + 0xCA62C1D6
 
+        -- this `Bitwise.shiftRightBy 0` is very important! Bitwise.complement can change the sign, e.g. `Bitwise.complement 6 == -7`.
+        -- SHA1 mixes bitwise operators with integer addition, and a negative number would then clearly give incorrect results.
+        -- this shift forces the number to be unsigned.
         newA =
-            (Bitwise.or (Bitwise.shiftRightZfBy 27 a) (Bitwise.shiftLeftBy 5 a) + f + e + int)
-                |> Bitwise.shiftRightZfBy 0
+            rotateLeftBy 5 a + f + e + int
     in
     DeltaState (Tuple5 newA a (rotateLeftBy 30 b) c d)
-
-
-trim : Int -> Int
-trim =
-    Bitwise.and 0xFFFFFFFF
 
 
 rotateLeftBy : Int -> Int -> Int
@@ -330,21 +327,12 @@ toHex (Digest (Tuple5 a b c d e)) =
 
 
 wordToHex : Int -> String
-wordToHex int =
-    let
-        left =
-            int
-                |> shiftRightZfBy 0x10
-                |> Hex.toString
-                |> String.padLeft 4 '0'
-
-        right =
-            int
-                |> and 0xFFFF
-                |> Hex.toString
-                |> String.padLeft 4 '0'
-    in
-    left ++ right
+wordToHex byte =
+    byte
+        -- force integer to be unsigned
+        |> Bitwise.shiftRightZfBy 0
+        |> Hex.toString
+        |> String.padLeft 8 '0'
 
 
 
@@ -431,4 +419,3 @@ iterateHelp n step initial =
 
     else
         initial
-
