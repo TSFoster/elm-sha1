@@ -126,7 +126,7 @@ suite =
                             |> List.map Encode.unsignedInt8
                             |> Encode.sequence
                             |> Encode.encode
-                            |> SHA1.fromByte
+                            |> SHA1.fromBytes
                             |> SHA1.toHex
                             |> Expect.equal hex
         in
@@ -152,7 +152,7 @@ suite =
                 \_ ->
                     encoder
                         |> Encode.encode
-                        |> SHA1.fromByte
+                        |> SHA1.fromBytes
                         |> SHA1.toHex
                         |> Expect.equal hex
             ]
@@ -211,7 +211,7 @@ makeTestHelp input hex base64 =
 
                 FromBytes bytes ->
                     ( String.fromInt (List.length bytes) ++ " bytes"
-                    , SHA1.fromBytes bytes
+                    , SHA1.fromByteValues bytes
                     )
     in
     describe description
@@ -221,7 +221,7 @@ makeTestHelp input hex base64 =
             \_ -> Expect.equal (SHA1.toBase64 digest) base64
         , test "Raw bytes" <|
             \_ ->
-                SHA1.toBytes digest
+                SHA1.toByteValues digest
                     |> List.map (Hex.toString >> String.padLeft 2 '0')
                     |> String.concat
                     |> Expect.equal hex
