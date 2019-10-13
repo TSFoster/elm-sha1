@@ -186,7 +186,7 @@ hashBytesValue bytes =
         -- in any case, the `Decode.andThen` fixes the issue 
         hashState : Decoder State
         hashState =
-            Decode.succeed
+            Decode.succeed ()
                 |> Decode.andThen (\_ -> iterate numberOfChunks reduceBytesMessage initialState)
     in
     case Decode.decode hashState message of
