@@ -180,9 +180,14 @@ hashBytesValue bytes =
         numberOfChunks =
             Bytes.width message // 64
 
+        -- The `Decode.succeed ()` is required! it fixes a weird issue with large buffers 
+        -- allocating many large buffers can make SHA1 non-deterministic somehow 
+        -- (I'm not sure why that is right now, and if it's an elm problem or something deeper)
+        -- in any case, the `Decode.andThen` fixes the issue 
         hashState : Decoder State
         hashState =
-            iterate numberOfChunks reduceBytesMessage initialState
+            Decode.succeed
+                |> Decode.andThen (\_ -> iterate numberOfChunks reduceBytesMessage initialState)
     in
     case Decode.decode hashState message of
         Just (State digest) ->
