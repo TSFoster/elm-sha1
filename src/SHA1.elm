@@ -109,7 +109,7 @@ type DeltaState
 -}
 fromString : String -> Digest
 fromString =
-    hashBytesValue << Encode.encode << Encode.string
+    hashBytes initialState << Encode.encode << Encode.string
 
 
 {-| Sometimes you have binary data that's not representable in a string. Create
@@ -129,7 +129,7 @@ fromByteValues input =
         |> List.map Encode.unsignedInt8
         |> Encode.sequence
         |> Encode.encode
-        |> hashBytesValue
+        |> hashBytes initialState
 
 
 {-| Create a digest from a [`Bytes`](https://package.elm-lang.org/packages/elm/bytes/latest/)
@@ -147,19 +147,16 @@ fromByteValues input =
 -}
 fromBytes : Bytes -> Digest
 fromBytes =
-    hashBytesValue
+    hashBytes initialState
 
 
-hashBytesValue : Bytes -> Digest
-hashBytesValue bytes =
+padBuffer : Int -> Bytes -> Bytes
+padBuffer byteCount bytes =
     let
-        byteCount =
-            Bytes.width bytes
-
         -- The full message (message + 1 byte for message end flag (0x80) + 8 bytes for message length)
         -- has to be a multiple of 64 bytes (i.e. of 512 bits).
         -- The 4 is because the bitCountInBytes is supposed to be 8 long, but it's only 4 (8 - 4 = 4)
-        zeroBytesToAppend =
+        paddingSize =
             4 + modBy 64 (56 - modBy 64 (byteCount + 1))
 
         message =
@@ -167,37 +164,83 @@ hashBytesValue bytes =
                 (Encode.sequence
                     [ Encode.bytes bytes
                     , Encode.unsignedInt8 0x80
-                    , Encode.sequence (List.repeat zeroBytesToAppend (Encode.unsignedInt8 0))
-
-                    -- The 3s are to convert byte count to bit count (2^3 = 8)
-                    , byteCount |> shiftRightZfBy (0x18 - 3) |> and 0xFF |> Encode.unsignedInt8
-                    , byteCount |> shiftRightZfBy (0x10 - 3) |> and 0xFF |> Encode.unsignedInt8
-                    , byteCount |> shiftRightZfBy (0x08 - 3) |> and 0xFF |> Encode.unsignedInt8
-                    , byteCount |> shiftLeftBy 3 |> and 0xFF |> Encode.unsignedInt8
+                    , Encode.sequence (List.repeat paddingSize (Encode.unsignedInt8 0))
+                    , Encode.unsignedInt32 BE (Bitwise.shiftLeftBy 3 byteCount)
                     ]
                 )
+    in
+    message
 
+
+{-| Split a `Bytes` into two
+
+This is unsafe because `n` can be larger than the buffer size, or negative etc.
+But we know the split will succeed.
+
+-}
+unsafeSplitBytes : Int -> Bytes -> ( Bytes, Bytes )
+unsafeSplitBytes n buffer =
+    let
+        decoder =
+            Decode.map2 Tuple.pair (Decode.bytes n) (Decode.bytes (Bytes.width buffer - n))
+    in
+    case Decode.decode decoder buffer of
+        Just v ->
+            v
+
+        Nothing ->
+            ( buffer, Encode.encode (Encode.sequence []) )
+
+
+hashBytes : State -> Bytes -> Digest
+hashBytes state bytes =
+    case hashBytesHelp (Bytes.width bytes) True bytes state of
+        State r ->
+            Digest r
+
+
+{-| For some reason, working with large buffers is problematic
+
+Therefore we split them into smaller chunks if the message is very large
+
+-}
+maxSize : Int
+maxSize =
+    2048 * 64
+
+
+hashBytesHelp : Int -> Bool -> Bytes -> State -> State
+hashBytesHelp fullSize isLast bytes state =
+    if Bytes.width bytes > maxSize then
+        let
+            ( first, rest ) =
+                unsafeSplitBytes maxSize bytes
+        in
+        hashBytesHelp fullSize True rest (hashBytesHelp fullSize False first state)
+
+    else if isLast then
+        hashChunks (padBuffer fullSize bytes) state
+
+    else
+        hashChunks bytes state
+
+
+hashChunks : Bytes -> State -> State
+hashChunks message state =
+    let
         numberOfChunks =
             Bytes.width message // 64
 
-        -- The `Decode.succeed ()` is required! it fixes a weird issue with large buffers 
-        -- allocating many large buffers can make SHA1 non-deterministic somehow 
-        -- (I'm not sure why that is right now, and if it's an elm problem or something deeper)
-        -- in any case, the `Decode.andThen` fixes the issue 
         hashState : Decoder State
         hashState =
-            Decode.succeed ()
-                |> Decode.andThen (\_ -> iterate numberOfChunks reduceBytesMessage initialState)
+            iterate numberOfChunks reduceBytesMessage state
     in
     case Decode.decode hashState message of
-        Just (State digest) ->
-            Digest digest
+        Just newState ->
+            newState
 
         Nothing ->
-            -- impossible case
-            case initialState of
-                State digest ->
-                    Digest digest
+            state
 
 
 i32 : Decoder Int
