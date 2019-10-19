@@ -50,9 +50,8 @@ hashing [elm/bytes], [let me know][issues]!
 
 -}
 
-import Array exposing (Array)
 import Base64
-import Bitwise exposing (and, complement, or, shiftLeftBy, shiftRightZfBy)
+import Bitwise
 import Bytes exposing (Bytes, Endianness(..))
 import Bytes.Decode as Decode exposing (Decoder, Step(..))
 import Bytes.Encode as Encode
@@ -77,8 +76,8 @@ numberOfWords =
 -- TYPES
 
 
-type Tuple5
-    = Tuple5 Int Int Int Int Int
+type alias Tuple5 =
+    { a : Int, b : Int, c : Int, d : Int, e : Int }
 
 
 {-| A type to represent a message digest. `SHA1.Digest`s are equatable, and you may
@@ -93,12 +92,17 @@ type State
     = State Tuple5
 
 
+initialState : State
+initialState =
+    State (Tuple5 0x67452301 0xEFCDAB89 0x98BADCFE 0x10325476 0xC3D2E1F0)
+
+
 type DeltaState
     = DeltaState Tuple5
 
 
 
--- CALCULATING
+-- PUBLIC FUNCTIONS
 
 
 {-| Create a digest from a `String`.
@@ -150,12 +154,19 @@ fromBytes =
     hashBytes initialState
 
 
-padBuffer : Int -> Bytes -> Bytes
-padBuffer byteCount bytes =
+
+-- BUFFER PRE-PROCESSING
+
+
+padBuffer : Bytes -> Bytes
+padBuffer bytes =
     let
+        byteCount =
+            Bytes.width bytes
+
         -- The full message (message + 1 byte for message end flag (0x80) + 8 bytes for message length)
         -- has to be a multiple of 64 bytes (i.e. of 512 bits).
-        -- The 4 is because the bitCountInBytes is supposed to be 8 long, but it's only 4 (8 - 4 = 4)
+        -- The 4 is because the message length is only encoded as 4 bytes, so 4 extra zero bytes are needed.
         paddingSize =
             4 + modBy 64 (56 - modBy 64 (byteCount + 1))
 
@@ -172,88 +183,44 @@ padBuffer byteCount bytes =
     message
 
 
-{-| Split a `Bytes` into two
-
-This is unsafe because `n` can be larger than the buffer size, or negative etc.
-But we know the split will succeed.
-
--}
-unsafeSplitBytes : Int -> Bytes -> ( Bytes, Bytes )
-unsafeSplitBytes n buffer =
-    let
-        decoder =
-            Decode.map2 Tuple.pair (Decode.bytes n) (Decode.bytes (Bytes.width buffer - n))
-    in
-    case Decode.decode decoder buffer of
-        Just v ->
-            v
-
-        Nothing ->
-            ( buffer, Encode.encode (Encode.sequence []) )
-
-
 hashBytes : State -> Bytes -> Digest
 hashBytes state bytes =
-    case hashBytesHelp (Bytes.width bytes) True bytes state of
-        State r ->
-            Digest r
-
-
-{-| For some reason, working with large buffers is problematic
-
-Therefore we split them into smaller chunks if the message is very large
-
--}
-maxSize : Int
-maxSize =
-    2048 * 64
-
-
-hashBytesHelp : Int -> Bool -> Bytes -> State -> State
-hashBytesHelp fullSize isLast bytes state =
-    if Bytes.width bytes > maxSize then
-        let
-            ( first, rest ) =
-                unsafeSplitBytes maxSize bytes
-        in
-        hashBytesHelp fullSize True rest (hashBytesHelp fullSize False first state)
-
-    else if isLast then
-        hashChunks (padBuffer fullSize bytes) state
-
-    else
-        hashChunks bytes state
-
-
-hashChunks : Bytes -> State -> State
-hashChunks message state =
     let
+        message =
+            padBuffer bytes
+
         numberOfChunks =
             Bytes.width message // 64
 
         hashState : Decoder State
         hashState =
-            iterate numberOfChunks reduceBytesMessage state
+            iterate numberOfChunks reduceChunk state
     in
     case Decode.decode hashState message of
-        Just newState ->
-            newState
+        Just (State r) ->
+            Digest r
 
         Nothing ->
-            state
+            case state of
+                State tuple8 ->
+                    Digest tuple8
 
 
-i32 : Decoder Int
-i32 =
+
+-- REDUCE CHUNK
+
+
+u32 : Decoder Int
+u32 =
     Decode.unsignedInt32 BE
 
 
-reduceBytesMessage : State -> Decoder State
-reduceBytesMessage state =
-    map16 (reduceMessage state) i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32
+reduceChunk : State -> Decoder State
+reduceChunk state =
+    map16 (reduceChunkHelp state) u32 u32 u32 u32 u32 u32 u32 u32 u32 u32 u32 u32 u32 u32 u32 u32
 
 
-reduceMessage (State ((Tuple5 h0 h1 h2 h3 h4) as initial)) b16 b15 b14 b13 b12 b11 b10 b9 b8 b7 b6 b5 b4 b3 b2 b1 =
+reduceChunkHelp (State initial) b16 b15 b14 b13 b12 b11 b10 b9 b8 b7 b6 b5 b4 b3 b2 b1 =
     let
         initialDeltaState =
             DeltaState initial
@@ -274,10 +241,10 @@ reduceMessage (State ((Tuple5 h0 h1 h2 h3 h4) as initial)) b16 b15 b14 b13 b12 b
                 |> calculateDigestDeltas 14 b15
                 |> calculateDigestDeltas 15 b16
 
-        (DeltaState (Tuple5 a b c d e)) =
-            reduceWordsHelp 0 initialDeltaState b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12 b13 b14 b15 b16
+        (DeltaState { a, b, c, d, e }) =
+            reduceWords 0 initialDeltaState b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12 b13 b14 b15 b16
     in
-    State (Tuple5 (h0 + a) (h1 + b) (h2 + c) (h3 + d) (h4 + e))
+    State (Tuple5 (initial.a + a) (initial.b + b) (initial.c + c) (initial.d + d) (initial.e + e))
 
 
 {-| Fold over the words, calculate the delta and combine with the delta state.
@@ -287,7 +254,7 @@ So in the recursion, `b16` is dropped, all the others shift one position to the 
 Then the `deltaState` is also updated with the `value`.
 
 -}
-reduceWordsHelp i deltaState b16 b15 b14 b13 b12 b11 b10 b9 b8 b7 b6 b5 b4 b3 b2 b1 =
+reduceWords i deltaState b16 b15 b14 b13 b12 b11 b10 b9 b8 b7 b6 b5 b4 b3 b2 b1 =
     if (i - blockSize) < 0 then
         let
             value =
@@ -297,14 +264,14 @@ reduceWordsHelp i deltaState b16 b15 b14 b13 b12 b11 b10 b9 b8 b7 b6 b5 b4 b3 b2
                     |> Bitwise.xor b16
                     |> rotateLeftBy 1
         in
-        reduceWordsHelp (i + 1) (calculateDigestDeltas (i + numberOfWords) value deltaState) b15 b14 b13 b12 b11 b10 b9 b8 b7 b6 b5 b4 b3 b2 b1 value
+        reduceWords (i + 1) (calculateDigestDeltas (i + numberOfWords) value deltaState) b15 b14 b13 b12 b11 b10 b9 b8 b7 b6 b5 b4 b3 b2 b1 value
 
     else
         deltaState
 
 
 calculateDigestDeltas : Int -> Int -> DeltaState -> DeltaState
-calculateDigestDeltas index int (DeltaState (Tuple5 a b c d e)) =
+calculateDigestDeltas index int (DeltaState { a, b, c, d, e }) =
     let
         -- benchmarks show integer division and cases on the integter are the fastest
         f =
@@ -321,9 +288,6 @@ calculateDigestDeltas index int (DeltaState (Tuple5 a b c d e)) =
                 _ ->
                     Bitwise.xor b (Bitwise.xor c d) + 0xCA62C1D6
 
-        -- this `Bitwise.shiftRightBy 0` is very important! Bitwise.complement can change the sign, e.g. `Bitwise.complement 6 == -7`.
-        -- SHA1 mixes bitwise operators with integer addition, and a negative number would then clearly give incorrect results.
-        -- this shift forces the number to be unsigned.
         newA =
             rotateLeftBy 5 a + f + e + int
     in
@@ -334,11 +298,6 @@ rotateLeftBy : Int -> Int -> Int
 rotateLeftBy amount i =
     Bitwise.or (Bitwise.shiftRightZfBy (32 - amount) i) (Bitwise.shiftLeftBy amount i)
         |> Bitwise.shiftRightZfBy 0
-
-
-initialState : State
-initialState =
-    State (Tuple5 0x67452301 0xEFCDAB89 0x98BADCFE 0x10325476 0xC3D2E1F0)
 
 
 
@@ -361,7 +320,7 @@ looking for!
 
 -}
 toByteValues : Digest -> List Int
-toByteValues (Digest (Tuple5 a b c d e)) =
+toByteValues (Digest { a, b, c, d, e }) =
     List.concatMap wordToBytes [ a, b, c, d, e ]
 
 
@@ -375,7 +334,7 @@ wordToBytes int =
 
 
 toEncoder : Digest -> Encode.Encoder
-toEncoder (Digest (Tuple5 a b c d e)) =
+toEncoder (Digest { a, b, c, d, e }) =
     Encode.sequence
         [ Encode.unsignedInt32 BE a
         , Encode.unsignedInt32 BE b
@@ -405,7 +364,7 @@ hexadecimal digits.
 
 -}
 toHex : Digest -> String
-toHex (Digest (Tuple5 a b c d e)) =
+toHex (Digest { a, b, c, d, e }) =
     wordToHex a ++ wordToHex b ++ wordToHex c ++ wordToHex d ++ wordToHex e
 
 
@@ -484,12 +443,13 @@ Needs some care to not run into stack overflow. This definition is nicely tail-r
 -}
 iterate : Int -> (a -> Decoder a) -> a -> Decoder a
 iterate n step initial =
-    iterateHelp n (\value -> Decode.andThen step value) (Decode.succeed initial)
+    Decode.loop ( n, initial ) (loopHelp step)
 
 
-iterateHelp n step initial =
+loopHelp step ( n, state ) =
     if n > 0 then
-        iterateHelp (n - 1) step (step initial)
+        step state
+            |> Decode.map (\new -> Loop ( n - 1, new ))
 
     else
-        initial
+        Decode.succeed (Decode.Done state)
