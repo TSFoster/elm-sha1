@@ -241,7 +241,7 @@ reduceChunk state =
     map16 (reduceChunkHelp state) u32 u32 u32 u32 u32 u32 u32 u32 u32 u32 u32 u32 u32 u32 u32 u32
 
 
-reduceChunkHelp (State initial) b16 b15 b14 b13 b12 b11 b10 b9 b8 b7 b6 b5 b4 b3 b2 b1 =
+reduceChunkHelp (State initial) b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12 b13 b14 b15 b16 =
     let
         initialDeltaState =
             DeltaState initial
@@ -441,6 +441,25 @@ toBase64 digest =
 -- HELPERS
 
 
+{-| Iterate a decoder `n` times
+
+Needs some care to not run into stack overflow. This definition is nicely tail-recursive.
+
+-}
+iterate : Int -> (a -> Decoder a) -> a -> Decoder a
+iterate n step initial =
+    Decode.loop ( n, initial ) (loopHelp step)
+
+
+loopHelp step ( n, state ) =
+    if n > 0 then
+        step state
+            |> Decode.map (\new -> Loop ( n - 1, new ))
+
+    else
+        Decode.succeed (Decode.Done state)
+
+
 {-| The most efficient implmenentation for `map16`, given that `Decode.map5` is the highest defined in Kernel code
 -}
 map16 :
@@ -463,27 +482,17 @@ map16 :
     -> Decoder b16
     -> Decoder result
 map16 f b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12 b13 b14 b15 b16 =
-    Decode.succeed f
-        |> Decode.map5 (\a b c d e -> e d c b a) b4 b3 b2 b1
-        |> Decode.map5 (\a b c d e -> e d c b a) b8 b7 b6 b5
-        |> Decode.map5 (\a b c d e -> e d c b a) b12 b11 b10 b9
-        |> Decode.map5 (\a b c d e -> e d c b a) b16 b15 b14 b13
+    let
+        d1 =
+            Decode.map4 (\a b c d -> f a b c d) b1 b2 b3 b4
 
+        d2 =
+            Decode.map5 (\h a b c d -> h a b c d) d1 b5 b6 b7 b8
 
-{-| Iterate a decoder `n` times
+        d3 =
+            Decode.map5 (\h a b c d -> h a b c d) d2 b9 b10 b11 b12
 
-Needs some care to not run into stack overflow. This definition is nicely tail-recursive.
-
--}
-iterate : Int -> (a -> Decoder a) -> a -> Decoder a
-iterate n step initial =
-    Decode.loop ( n, initial ) (loopHelp step)
-
-
-loopHelp step ( n, state ) =
-    if n > 0 then
-        step state
-            |> Decode.map (\new -> Loop ( n - 1, new ))
-
-    else
-        Decode.succeed (Decode.Done state)
+        d4 =
+            Decode.map5 (\h a b c d -> h a b c d) d3 b13 b14 b15 b16
+    in
+    d4
