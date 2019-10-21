@@ -129,8 +129,29 @@ and 255 are discarded.
 -}
 fromByteValues : List Int -> Digest
 fromByteValues input =
+    let
+        -- try to use unsignedInt32 to represent 4 bytes
+        -- much more efficient for large inputs
+        pack b1 b2 b3 b4 =
+            Encode.unsignedInt32 BE
+                (Bitwise.or
+                    (Bitwise.or (Bitwise.shiftLeftBy 24 b1) (Bitwise.shiftLeftBy 16 b2))
+                    (Bitwise.or (Bitwise.shiftLeftBy 8 b3) b4)
+                )
+
+        go accum remaining =
+            case remaining of
+                b1 :: b2 :: b3 :: b4 :: rest ->
+                    go (pack b1 b2 b3 b4 :: accum) rest
+
+                b1 :: rest ->
+                    go (Encode.unsignedInt8 b1 :: accum) rest
+
+                _ ->
+                    List.reverse accum
+    in
     input
-        |> List.map Encode.unsignedInt8
+        |> go []
         |> Encode.sequence
         |> Encode.encode
         |> hashBytes initialState
@@ -277,13 +298,13 @@ calculateDigestDeltas index int (DeltaState { a, b, c, d, e }) =
         f =
             case index // 20 of
                 0 ->
-                    or (and b c) (and (complement b) d) + 0x5A827999
+                    Bitwise.or (Bitwise.and b c) (Bitwise.and (Bitwise.complement b) d) + 0x5A827999
 
                 1 ->
                     Bitwise.xor b (Bitwise.xor c d) + 0x6ED9EBA1
 
                 2 ->
-                    or (and b (or c d)) (and c d) + 0x8F1BBCDC
+                    Bitwise.or (Bitwise.and b (Bitwise.or c d)) (Bitwise.and c d) + 0x8F1BBCDC
 
                 _ ->
                     Bitwise.xor b (Bitwise.xor c d) + 0xCA62C1D6
@@ -326,10 +347,23 @@ toByteValues (Digest { a, b, c, d, e }) =
 
 wordToBytes : Int -> List Int
 wordToBytes int =
-    [ int |> shiftRightZfBy 0x18 |> and 0xFF
-    , int |> shiftRightZfBy 0x10 |> and 0xFF
-    , int |> shiftRightZfBy 0x08 |> and 0xFF
-    , int |> and 0xFF
+    let
+        b1 =
+            Bitwise.shiftRightBy 24 int
+
+        b2 =
+            Bitwise.shiftRightBy 16 int
+
+        b3 =
+            Bitwise.shiftRightBy 8 int
+
+        b4 =
+            int
+    in
+    [ Bitwise.and 0xFF b1
+    , Bitwise.and 0xFF b2
+    , Bitwise.and 0xFF b3
+    , Bitwise.and 0xFF b4
     ]
 
 

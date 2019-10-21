@@ -42,6 +42,17 @@ bitoperations =
         rotateLeftBy amount i =
             Bitwise.or (Bitwise.shiftRightZfBy (32 - amount) i) (Bitwise.shiftLeftBy amount i)
                 |> Bitwise.shiftRightZfBy 0
+
+        rotateRightBy : Int -> Int -> Int
+        rotateRightBy amount i =
+            Bitwise.or (Bitwise.shiftLeftBy (32 - amount) i) (Bitwise.shiftRightZfBy amount i)
+                |> Bitwise.shiftRightZfBy 0
+
+        smallSigma1 y =
+            rotateRightBy 17 y
+                |> Bitwise.xor (rotateRightBy 19 y)
+                |> Bitwise.xor (Bitwise.shiftRightZfBy 10 y)
+                |> Bitwise.shiftRightZfBy 0
     in
     [ fuzz (Fuzz.intRange 0 0xFFFFFFFF) "rotate left" <|
         \value ->
@@ -54,6 +65,30 @@ bitoperations =
                 |> rotateLeftBy (32 - n)
                 -- |> Bitwise.and 0xFFFFFFFF
                 |> Expect.equal value
+    , fuzz (Fuzz.tuple ( Fuzz.intRange 0 0xFFFFFFFF, Fuzz.intRange 0 32 )) "rotate right" <|
+        \( value, n ) ->
+            value
+                |> rotateRightBy n
+                |> rotateRightBy (32 - n)
+                -- |> Bitwise.and 0xFFFFFFFF
+                |> Expect.equal value
+    , test "small sigma 1" <|
+        \_ ->
+            smallSigma1 3806512014
+                |> Expect.equal 965612957
+    , test "right rotations 1" <|
+        \_ -> rotateRightBy 17 3806512014 |> Expect.equal 1640460657
+    , test "right rotations 2" <|
+        \_ -> rotateRightBy 19 3806512014 |> Expect.equal 1483856988
+    , test "right rotations 3" <|
+        \_ -> Bitwise.shiftRightZfBy 10 3806512014 |> Expect.equal 3717296
+    , test "xor 1" <|
+        \_ -> Bitwise.xor 1640460657 1483856988 |> Expect.equal 968273197
+    , test "xor 2" <|
+        \_ ->
+            Bitwise.xor 968273197 3820533936
+                |> Bitwise.shiftRightZfBy 0
+                |> Expect.equal 3658356125
     , fuzz fuzzDigest "calculate the new a" <|
         \{ a, b, c, d, e } ->
             let
