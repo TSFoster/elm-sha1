@@ -81,3 +81,12 @@ Not officially validated through [CAVP](http://csrc.nist.gov/groups/STM/cavp/)/[
 This package is also tested against additional hashes in the documentation (using [elm-verify-examples](https://github.com/stoeffel/elm-verify-examples)), [tests/Tests.elm](https://github.com/TSFoster/elm-sha1/blob/master/tests/Tests.elm), and indirectly via [romariolopezc/elm-hmac-sha1’s tests](https://github.com/romariolopezc/elm-hmac-sha1/blob/master/tests/HmacSha1Test.elm), and [TSFoster/elm-uuid’s tests](https://github.com/TSFoster/elm-uuid/blob/2.2.0/tests/Tests.elm).
 
 Please note that SHA-1 is not “[considered secure against well-funded opponents](https://en.wikipedia.org/wiki/SHA-1)”, but it does have its uses, including, but not limited to, [version 5 UUIDs](https://package.elm-lang.org/packages/TSFoster/elm-uuid/latest/UUID#childNamed).
+
+## Contributors
+
+Special thanks to [Folkert de Vries](https://github.com/folkertdev) for a major rewrite of this library, including huge performance gains, more rigorous testing, and support for [elm/bytes](https://package.elm-lang.org/packages/elm/bytes/latest/).
+
+Other contributors:
+
+* [Colin T.A. Gray](https://github.com/colinta)
+* [Dimitri Benin](https://github.com/BendingBender)
