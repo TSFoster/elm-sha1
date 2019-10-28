@@ -5,9 +5,10 @@ import Bytes
 import Bytes.Encode as Encode
 import Expect exposing (Expectation)
 import Fuzz exposing (Fuzzer)
+import Generated.SHA1LongMsg as Long
+import Generated.SHA1ShortMsg as Short
 import Hex
 import Random exposing (Generator)
-import Regex exposing (Regex)
 import Result exposing (Result)
 import SHA1
 import Test exposing (..)
@@ -36,7 +37,7 @@ fuzzDigest =
         (Fuzz.intRange 0 0xFFFFFFFF)
 
 
-bitoperations =
+bitOperations =
     let
         rotateLeftBy : Int -> Int -> Int
         rotateLeftBy amount i =
@@ -136,7 +137,11 @@ suite =
     if True then
         describe "SHA-1"
             [ describe "from bytes" fromBytes
-            , describe "bit operations" bitoperations
+            , describe "bit operations" bitOperations
+            , describe "CAVS test suite"
+                [ describe "long" (List.map cavsHelper Long.tests)
+                , describe "short" (List.map cavsHelper Short.tests)
+                ]
             , fromWikipedia
                 ++ unicode
                 ++ fromDevRandom
@@ -260,22 +265,17 @@ makeTestHelp input hex base64 =
                     |> List.map (Hex.toString >> String.padLeft 2 '0')
                     |> String.concat
                     |> Expect.equal hex
-
-        {-
-           , test "with Bytes" <|
-               \_ ->
-                   let
-                       encoder =
-                           case input of
-                               FromString str ->
-                                   Encode.encode <| Encode.string str
-
-                               FromBytes bytes ->
-                                   Encode.encode <| Encode.sequence (List.map Encode.unsignedInt8 bytes)
-                   in
-                   encoder
-                       |> SHA1.fromByte
-                       |> SHA1.toHex
-                       |> Expect.equal hex
-        -}
         ]
+
+
+cavsHelper : ( String, List Int ) -> Test
+cavsHelper ( hex, bytes ) =
+    test (Debug.toString bytes) <|
+        \_ ->
+            bytes
+                |> List.map Encode.unsignedInt8
+                |> Encode.sequence
+                |> Encode.encode
+                |> SHA1.fromBytes
+                |> SHA1.toHex
+                |> Expect.equal hex
