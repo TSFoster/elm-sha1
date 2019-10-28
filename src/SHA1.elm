@@ -23,13 +23,6 @@ the bytes.
 [hexadecimal]: https://en.wikipedia.org/wiki/Hexadecimal
 [base64]: https://en.wikipedia.org/wiki/Base64
 
-**Note:** Currently, the package can only create digests for around 200kb of
-data. If there is any interest in using this package for hashing >200kb, or for
-hashing [elm/bytes], [let me know][issues]!
-
-[elm/bytes]: https://github.com/elm/bytes
-[issues]: https://github.com/TSFoster/elm-sha1/issues
-
 @docs Digest
 
 
