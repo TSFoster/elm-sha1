@@ -109,3 +109,10 @@ Other contributors:
 
 
 [elm/bytes]: https://package.elm-lang.org/packages/elm/bytes/latest/
+
+## TODO
+
+* Benchmarks
+  * Add way to run benchmarks
+  * Automate testing that changes do not negatively impact performance?
+* Write CONTRIBUTING.md
