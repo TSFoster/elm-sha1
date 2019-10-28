@@ -22,6 +22,8 @@ And can represent the digest as
 
 ## IMPORTANT UPGRADE NOTES
 
+- elm-sha1 >= v1.0.5 provides large performance improvements, thanks to [Folkert de Vries].
+
 - **Upgrade to elm-sha1 >= v1.0.3 for use with elm v0.19.1.** An update to the
   elm compiler to fix a [regression][issue-1945] will break versions of this
   package before v1.0.3. Please ensure this package is updated to at least v1.0.3
@@ -31,6 +33,7 @@ And can represent the digest as
   1.0.0 and 1.0.1 of this library. If you are using either of these versions, it
   is highly recommended that you upgrade as soon as possible.
 
+[Folkert de Vries]: https://github.com/folkertdev
 [issue-2]: https://github.com/TSFoster/elm-sha1/issues/2
 [issue-1945]: https://github.com/elm/compiler/issues/1945
 
