@@ -2,13 +2,13 @@
 .INTERMEDIATE: cavs/*.rsp
 
 
-GAWK = gawk
-CURL = curl
-ELM_FORMAT = elm-format
-ELM_TEST = elm-test
-ELM_VERIFY_EXAMPLES = elm-verify-examples
-RIMRAF = rm -rf
-SORT = sort
+GAWK := gawk
+CURL := curl
+ELM := elm
+ELM_FORMAT := elm-format
+ELM_TEST := elm-test
+ELM_VERIFY_EXAMPLES := elm-verify-examples
+RIMRAF := rm -rf
 
 
 # The default goal
@@ -22,7 +22,7 @@ help:
 
 
 test: format tests/VerifyExamples tests/Generated/SHA1LongMsg.elm tests/Generated/SHA1ShortMsg.elm
-	$(ELM_TEST)
+	$(ELM_TEST) --compiler=$(ELM)
 
 
 format: clean
