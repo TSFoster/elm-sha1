@@ -2,7 +2,7 @@ module Tests exposing (suite)
 
 import Bitwise
 import Bytes exposing (Bytes)
-import Bytes.Encode as Encode
+import Bytes.Encode as Encode exposing (Encoder)
 import Expect exposing (Expectation)
 import Fuzz exposing (Fuzzer)
 import Generated.SHA1LongMsg as Long
@@ -47,6 +47,11 @@ suite =
                 , test "200KB" <|
                     expectation [ FromByteValues (List.repeat 200000 184) ]
                         [ HexDigest "707d33fe36b8bf5d21568058370ad9b70c5d1bfc", Base64Digest "cH0z/ja4v10hVoBYNwrZtwxdG/w=" ]
+                ]
+            , describe "from Bytes"
+                [ test "30MB" <|
+                    expectation [ FromBytes thirtyMegabytes ]
+                        [ HexDigest "a869e551c0dfeaf152a594f9051b99a65d46f16d", Base64Digest "qGnlUcDf6vFSpZT5BRuZpl1G8W0=" ]
                 ]
             , fuzz inputFuzzer "fromString, fromByteValues and fromBytes all equal" (\inputs -> expectation inputs [] ())
             , describe "Wikipedia examples"
@@ -320,3 +325,27 @@ rotateRightBy : Int -> Int -> Int
 rotateRightBy amount i =
     Bitwise.or (Bitwise.shiftLeftBy (32 - amount) i) (Bitwise.shiftRightZfBy amount i)
         |> Bitwise.shiftRightZfBy 0
+
+
+
+-- BYTES
+
+
+byteEncoder : Encoder
+byteEncoder =
+    Encode.unsignedInt8 0
+
+
+kilobyteEncoder : Encoder
+kilobyteEncoder =
+    Encode.sequence (List.repeat 1024 byteEncoder)
+
+
+megabyteEncoder : Encoder
+megabyteEncoder =
+    Encode.sequence (List.repeat 1024 kilobyteEncoder)
+
+
+thirtyMegabytes : Bytes
+thirtyMegabytes =
+    Encode.encode (Encode.sequence (List.repeat 30 megabyteEncoder))
