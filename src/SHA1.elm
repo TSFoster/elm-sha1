@@ -2,8 +2,8 @@ module SHA1 exposing
     ( Digest
     , fromString
     , toHex, toBase64
+    , fromElmBytes, toElmBytes
     , fromBytes, toBytes
-    , fromByteValues, toByteValues
     )
 
 {-| [SHA-1] is a [cryptographic hash function].
@@ -14,11 +14,11 @@ of uses, and is a lot stronger than MD5.
 [SHA-1]: https://en.wikipedia.org/wiki/SHA-1
 [cryptographic hash function]: https://en.wikipedia.org/wiki/Cryptographic_hash_function
 
-This package provides a way of creating SHA-1 digests from `String`s and `List
-Int`s (where each `Int` is between 0 and 255, and represents a byte). It can
-also take those `Digest`s and format them in [hexadecimal] or [base64] notation.
-Alternatively, you can get the binary digest, using a `List  Int` to represent
-the bytes.
+This package provides a way of creating SHA-1 digests from `Bytes`, `String`s,
+`List Int`s (where each `Int` is between 0 and 255, and represents a byte).
+It can also take those `Digest`s and format them in [hexadecimal] or [base64]
+notation. Alternatively, you can get the binary digest, using either `Bytes` or
+`List Int` to represent the bytes.
 
 [hexadecimal]: https://en.wikipedia.org/wiki/Hexadecimal
 [base64]: https://en.wikipedia.org/wiki/Base64
@@ -38,8 +38,8 @@ the bytes.
 
 # Binary data
 
+@docs fromElmBytes, toElmBytes
 @docs fromBytes, toBytes
-@docs fromByteValues, toByteValues
 
 -}
 
@@ -113,15 +113,15 @@ fromString =
 a digest from the raw "bytes", i.e. a `List` of `Int`s. Any items not between 0
 and 255 are discarded.
 
-    SHA1.fromByteValues [72, 105, 33, 32, 240, 159, 152, 132]
+    SHA1.fromBytes [72, 105, 33, 32, 240, 159, 152, 132]
     --> SHA1.fromString "Hi! 😄"
 
-    [0x00, 0xFF, 0x34, 0xA5] |> SHA1.fromByteValues |> SHA1.toBase64
+    [0x00, 0xFF, 0x34, 0xA5] |> SHA1.fromBytes |> SHA1.toBase64
     --> "sVQuFckyE6K3fsdLmLHmq8+J738="
 
 -}
-fromByteValues : List Int -> Digest
-fromByteValues input =
+fromBytes : List Int -> Digest
+fromBytes input =
     let
         -- try to use unsignedInt32 to represent 4 bytes
         -- much more efficient for large inputs
@@ -158,13 +158,13 @@ fromByteValues input =
     buffer : Bytes
     buffer = Encode.encode (Encode.unsignedInt32 BE 42)
 
-    SHA1.fromBytes buffer
+    SHA1.fromElmBytes buffer
         |> SHA1.toHex
         --> "25f0c736f1fad0770bbb9a265ded159517c1e68c"
 
 -}
-fromBytes : Bytes -> Digest
-fromBytes =
+fromElmBytes : Bytes -> Digest
+fromElmBytes =
     hashBytes initialState
 
 
@@ -318,13 +318,11 @@ rotateLeftBy amount i =
 -- FORMATTING
 
 
-{-| If you need the raw digest instead of the textual representation (for
-example, if using SHA-1 as part of another algorithm), `toBytes` is what you're
-looking for!
+{-| Turn a digest into `List Int`
 
     "And the band begins to play"
         |> SHA1.fromString
-        |> SHA1.toByteValues
+        |> SHA1.toBytes
     --> [ 0xF3, 0x08, 0x73, 0x13
     --> , 0xD6, 0xBC, 0xE5, 0x5B
     --> , 0x60, 0x0C, 0x69, 0x2F
@@ -333,13 +331,13 @@ looking for!
     --> ]
 
 -}
-toByteValues : Digest -> List Int
-toByteValues (Digest { a, b, c, d, e }) =
-    List.concatMap wordToBytes [ a, b, c, d, e ]
+toBytes : Digest -> List Int
+toBytes (Digest { a, b, c, d, e }) =
+    List.concatMap wordToByteValues [ a, b, c, d, e ]
 
 
-wordToBytes : Int -> List Int
-wordToBytes int =
+wordToByteValues : Int -> List Int
+wordToByteValues int =
     let
         b1 =
             Bitwise.shiftRightBy 24 int
@@ -376,8 +374,8 @@ toEncoder (Digest { a, b, c, d, e }) =
 The digest is stored as 5 big-endian 32-bit unsigned integers, so the width is 20 bytes or 160 bits.
 
 -}
-toBytes : Digest -> Bytes
-toBytes =
+toElmBytes : Digest -> Bytes
+toElmBytes =
     Encode.encode << toEncoder
 
 

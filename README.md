@@ -22,7 +22,8 @@ And can represent the digest as:
 
 ## IMPORTANT UPGRADE NOTES
 
-- elm-sha1 >= v1.0.5 provides large performance improvements, thanks to [Folkert de Vries].
+- elm-sha1 >= v1.0.5 provides large performance improvements, thanks to
+  [Folkert de Vries]. elm-sha >= v1.1.0 provides full support for [elm/bytes].
 
 - **Upgrade to elm-sha1 >= v1.0.3 for use with elm v0.19.1.** An update to the
   elm compiler to fix a [regression][issue-1945] will break versions of this
@@ -51,7 +52,7 @@ byteValues : List Int
 byteValues = [0x00, 0xFF, 0xCE, 0x35, 0x74]
 
 digest2 : SHA1.Digest
-digest2 = SHA1.fromByteValues byteValues
+digest2 = SHA1.fromBytes byteValues
 
 buffer : Bytes
 buffer =
@@ -60,7 +61,7 @@ buffer =
         |> Encode.encode
 
 digest3 : SHA1.Digest
-digest3 = SHA1.fromBytes buffer
+digest3 = SHA1.fromElmBytes buffer
 
 SHA1.toHex digest1
 --> "ecb252044b5ea0f679ee78ec1a12904739e2904d"
@@ -68,7 +69,7 @@ SHA1.toHex digest1
 SHA1.toBase64 digest2
 --> "gHweOF5Lyg+Ha7ujrlYwNa/Hwgk="
 
-SHA1.toByteValues digest3
+SHA1.toBytes digest3
 --> [ 0x80, 0x7C, 0x1E, 0x38
 --> , 0x5E, 0x4B, 0xCA, 0x0F
 --> , 0x87, 0x6B, 0xBB, 0xA3

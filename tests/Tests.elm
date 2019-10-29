@@ -166,7 +166,7 @@ suite =
                             |> List.map Encode.unsignedInt8
                             |> Encode.sequence
                             |> Encode.encode
-                            |> SHA1.fromBytes
+                            |> SHA1.fromElmBytes
                             |> SHA1.toHex
                             |> Expect.equal hex
         in
@@ -192,7 +192,7 @@ suite =
                 \_ ->
                     encoder
                         |> Encode.encode
-                        |> SHA1.fromBytes
+                        |> SHA1.fromElmBytes
                         |> SHA1.toHex
                         |> Expect.equal hex
             ]
@@ -251,7 +251,7 @@ makeTestHelp input hex base64 =
 
                 FromBytes bytes ->
                     ( String.fromInt (List.length bytes) ++ " bytes"
-                    , SHA1.fromByteValues bytes
+                    , SHA1.fromBytes bytes
                     )
     in
     describe description
@@ -261,7 +261,7 @@ makeTestHelp input hex base64 =
             \_ -> Expect.equal (SHA1.toBase64 digest) base64
         , test "Raw bytes" <|
             \_ ->
-                SHA1.toByteValues digest
+                SHA1.toBytes digest
                     |> List.map (Hex.toString >> String.padLeft 2 '0')
                     |> String.concat
                     |> Expect.equal hex
@@ -270,12 +270,20 @@ makeTestHelp input hex base64 =
 
 cavsHelper : ( String, List Int ) -> Test
 cavsHelper ( hex, bytes ) =
-    test (Debug.toString bytes) <|
-        \_ ->
-            bytes
-                |> List.map Encode.unsignedInt8
-                |> Encode.sequence
-                |> Encode.encode
-                |> SHA1.fromBytes
-                |> SHA1.toHex
-                |> Expect.equal hex
+    describe hex
+        [ test "bytes" <|
+            \_ ->
+                bytes
+                    |> List.map Encode.unsignedInt8
+                    |> Encode.sequence
+                    |> Encode.encode
+                    |> SHA1.fromElmBytes
+                    |> SHA1.toHex
+                    |> Expect.equal hex
+        , test "byte values" <|
+            \_ ->
+                bytes
+                    |> SHA1.fromBytes
+                    |> SHA1.toHex
+                    |> Expect.equal hex
+        ]
