@@ -22,7 +22,7 @@ help:
 
 
 test: format tests/VerifyExamples tests/Generated/SHA1LongMsg.elm tests/Generated/SHA1ShortMsg.elm
-	$(ELM_TEST) --compiler=$(ELM)
+	$(ELM_TEST) --compiler=$$(which $(ELM))
 
 
 format: clean
