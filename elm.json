@@ -3,7 +3,7 @@
     "name": "TSFoster/elm-sha1",
     "summary": "Generate SHA1 digests of strings or arbitrary data",
     "license": "BSD-3-Clause",
-    "version": "1.1.0",
+    "version": "2.0.0",
     "exposed-modules": [
         "SHA1"
     ],
@@ -15,6 +15,7 @@
         "rtfeldman/elm-hex": "1.0.0 <= v < 2.0.0"
     },
     "test-dependencies": {
-        "elm-explorations/test": "1.2.2 <= v < 2.0.0"
+        "elm-explorations/test": "1.2.2 <= v < 2.0.0",
+        "zwilias/elm-utf-tools": "2.0.1 <= v < 3.0.0"
     }
 }

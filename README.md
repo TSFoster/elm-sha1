@@ -5,38 +5,32 @@ Calculate SHA-1 digests in Elm.
 This package supports hashing of:
 
 * `String` using the utf-8 encoding
-* `List Int` where the elements are assumed to be below 256
 * `Bytes`, an [`elm/bytes`][elm/bytes] sequence of byte values
+* `List Int` where the elements are assumed to be below 256
 
 And can represent the digest as:
 
 * a [hexadecimal] string
 * a [base64] string
+* `Bytes`
 * a `List Int` of byte values
-* a `Bytes`
 
 [hexadecimal]: https://en.wikipedia.org/wiki/Hexadecimal
 [base64]: https://en.wikipedia.org/wiki/Base64
 
 # [Documentation](https://package.elm-lang.org/packages/TSFoster/elm-sha1/latest/SHA1)
 
-## IMPORTANT UPGRADE NOTES
+## Release notes
 
-- elm-sha1 >= v1.0.5 provides large performance improvements, thanks to
-  [Folkert de Vries]. elm-sha >= v1.1.0 provides full support for [elm/bytes].
+**Upgrading from `1.0.0 <= v < 1.0.4` is *strongly* recommended.** Later
+versions are more rigiorously tested, are significantly more performant, contain
+bug fixes, and work with elm v0.19.1.
 
-- **Upgrade to elm-sha1 >= v1.0.3 for use with elm v0.19.1.** An update to the
-  elm compiler to fix a [regression][issue-1945] will break versions of this
-  package before v1.0.3. Please ensure this package is updated to at least v1.0.3
-  when upgrading to elm version 0.19.1.
+* `2.0.0` prioritises use of [`Bytes`][elm/bytes] over [`List Int`].
+* `1.1.0` introduces the option to hash `Bytes` and represent `Digest`s as `Bytes`, without breaking the API.
+* `1.0.5` provides the performance improvements of the hashing algorithm in a non-breaking manner.
 
-- [There was an issue][issue-2] regarding input data of 311 bytes in versions
-  1.0.0 and 1.0.1 of this library. If you are using either of these versions, it
-  is highly recommended that you upgrade as soon as possible.
-
-[Folkert de Vries]: https://github.com/folkertdev
-[issue-2]: https://github.com/TSFoster/elm-sha1/issues/2
-[issue-1945]: https://github.com/elm/compiler/issues/1945
+Please see the [Contributors](#Contributors) section for thanks and more information.
 
 ## Examples
 
@@ -52,7 +46,7 @@ byteValues : List Int
 byteValues = [0x00, 0xFF, 0xCE, 0x35, 0x74]
 
 digest2 : SHA1.Digest
-digest2 = SHA1.fromBytes byteValues
+digest2 = SHA1.fromByteValues byteValues
 
 buffer : Bytes
 buffer =
@@ -61,7 +55,7 @@ buffer =
         |> Encode.encode
 
 digest3 : SHA1.Digest
-digest3 = SHA1.fromElmBytes buffer
+digest3 = SHA1.fromBytes buffer
 
 SHA1.toHex digest1
 --> "ecb252044b5ea0f679ee78ec1a12904739e2904d"
@@ -69,7 +63,7 @@ SHA1.toHex digest1
 SHA1.toBase64 digest2
 --> "gHweOF5Lyg+Ha7ujrlYwNa/Hwgk="
 
-SHA1.toBytes digest3
+SHA1.toByteValues digest3
 --> [ 0x80, 0x7C, 0x1E, 0x38
 --> , 0x5E, 0x4B, 0xCA, 0x0F
 --> , 0x87, 0x6B, 0xBB, 0xA3
@@ -101,12 +95,20 @@ Please note that SHA-1 is not “[considered secure against well-funded opponent
 
 ## Contributors
 
-Special thanks to [Folkert de Vries](https://github.com/folkertdev) for a major rewrite of this library, including huge performance gains, more rigorous testing, and support for [elm/bytes].
+Special thanks to [Folkert de Vries](https://github.com/folkertdev)
+for a major rewrite of this library, including huge [performance gains],
+more [rigorous testing], and support for [elm/bytes].
+More information can be found on [this Elm Discourse thread][bytes-thread].
 
-Other contributors:
+[performance gains]: https://github.com/TSFoster/elm-sha1/pull/7
+[rigorous testing]: https://github.com/TSFoster/elm-sha1/pull/6
+[bytes-thread]: https://discourse.elm-lang.org/t/fast-pure-elm-sha2-and-soon-sha1/4505
 
-* [Colin T.A. Gray](https://github.com/colinta)
-* [Dimitri Benin](https://github.com/BendingBender)
+* Thanks to [Colin T.A. Gray](https://github.com/colinta) for finding and [fixing a bug] related to inputs of 311 bytes
+* Thanks to [Dimitri Benin](https://github.com/BendingBender) for making this package [work with elm v0.19.1]
+
+[fixing a bug]: https://github.com/TSFoster/elm-sha1/pull/3
+[work with elm v0.19.1]: https://github.com/TSFoster/elm-sha1/pull/4
 
 
 [elm/bytes]: https://package.elm-lang.org/packages/elm/bytes/latest/
@@ -117,3 +119,4 @@ Other contributors:
   * Add way to run benchmarks
   * Automate testing that changes do not negatively impact performance?
 * Write CONTRIBUTING.md
+* Clean up Tests.elm

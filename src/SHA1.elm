@@ -2,8 +2,8 @@ module SHA1 exposing
     ( Digest
     , fromString
     , toHex, toBase64
-    , fromElmBytes, toElmBytes
     , fromBytes, toBytes
+    , fromByteValues, toByteValues
     )
 
 {-| [SHA-1] is a [cryptographic hash function].
@@ -14,7 +14,7 @@ of uses, and is a lot stronger than MD5.
 [SHA-1]: https://en.wikipedia.org/wiki/SHA-1
 [cryptographic hash function]: https://en.wikipedia.org/wiki/Cryptographic_hash_function
 
-This package provides a way of creating SHA-1 digests from `Bytes`, `String`s,
+This package provides a way of creating SHA-1 digests from `String`s, `Bytes`, or
 `List Int`s (where each `Int` is between 0 and 255, and represents a byte).
 It can also take those `Digest`s and format them in [hexadecimal] or [base64]
 notation. Alternatively, you can get the binary digest, using either `Bytes` or
@@ -38,8 +38,15 @@ notation. Alternatively, you can get the binary digest, using either `Bytes` or
 
 # Binary data
 
-@docs fromElmBytes, toElmBytes
 @docs fromBytes, toBytes
+
+Before the release of [elm/bytes], many packages (including this one) would use
+`List Int` to represent bytes. To enable interaction with these packages, you
+can use `fromByteValues` and `toByteValues`.
+
+[elm/bytes]: https://package.elm-lang.org/packages/elm/bytes/latest/
+
+@docs fromByteValues, toByteValues
 
 -}
 
@@ -96,6 +103,7 @@ type DeltaState
 
 
 -- PUBLIC FUNCTIONS
+-- Creating digests
 
 
 {-| Create a digest from a `String`.
@@ -109,21 +117,89 @@ fromString =
     hashBytes initialState << Encode.encode << Encode.string
 
 
+
+-- Formatting digests
+
+
+{-| One of the two canonical ways of representing a SHA-1 digest is with 40
+hexadecimal digits.
+
+    "And our friends are all aboard"
+        |> SHA1.fromString
+        |> SHA1.toHex
+    --> "f9a0c23ddcd40f6956b0cf59cd9b8800d71de73d"
+
+-}
+toHex : Digest -> String
+toHex (Digest { a, b, c, d, e }) =
+    wordToHex a ++ wordToHex b ++ wordToHex c ++ wordToHex d ++ wordToHex e
+
+
+{-| One of the two canonical ways of representing a SHA-1 digest is in a 20
+digit long Base64 binary to ASCII text encoding.
+
+    "Many more of them live next door"
+        |> SHA1.fromString
+        |> SHA1.toBase64
+    --> "jfL0oVb5xakab6BMLplGe2XPbj8="
+
+-}
+toBase64 : Digest -> String
+toBase64 digest =
+    digest
+        |> toEncoder
+        |> Encode.encode
+        |> Base64.fromBytes
+        |> Maybe.withDefault ""
+
+
+
+-- Binary data
+
+
+{-| Create a digest from [`Bytes`](https://package.elm-lang.org/packages/elm/bytes/latest/)
+
+    import Bytes.Encode as Encode
+    import Bytes exposing (Bytes, Endianness(..))
+
+    42
+        |> Encode.unsignedInt32 BE
+        |> Encode.encode
+        |> SHA1.fromBytes
+        |> SHA1.toHex
+    --> "25f0c736f1fad0770bbb9a265ded159517c1e68c"
+
+-}
+fromBytes : Bytes -> Digest
+fromBytes =
+    hashBytes initialState
+
+
+{-| Turn a digest into `Bytes`.
+
+The digest is stored as 5 big-endian 32-bit unsigned integers, so the width is 20 bytes or 160 bits.
+
+-}
+toBytes : Digest -> Bytes
+toBytes =
+    Encode.encode << toEncoder
+
+
 {-| Sometimes you have binary data that's not representable in a string. Create
 a digest from the raw "bytes", i.e. a `List` of `Int`s. Any items not between 0
 and 255 are discarded.
 
-    SHA1.fromBytes [72, 105, 33, 32, 240, 159, 152, 132]
+    SHA1.fromByteValues [72, 105, 33, 32, 240, 159, 152, 132]
     --> SHA1.fromString "Hi! 😄"
 
-    [0x00, 0xFF, 0x34, 0xA5] |> SHA1.fromBytes |> SHA1.toBase64
+    [0x00, 0xFF, 0x34, 0xA5] |> SHA1.fromByteValues |> SHA1.toBase64
     --> "sVQuFckyE6K3fsdLmLHmq8+J738="
 
 -}
-fromBytes : List Int -> Digest
-fromBytes input =
+fromByteValues : List Int -> Digest
+fromByteValues =
     let
-        -- try to use unsignedInt32 to represent 4 bytes
+        -- use unsignedInt32 to represent 4 bytes
         -- much more efficient for large inputs
         pack b1 b2 b3 b4 =
             Encode.unsignedInt32 BE
@@ -143,29 +219,25 @@ fromBytes input =
                 _ ->
                     List.reverse accum
     in
-    input
-        |> go []
-        |> Encode.sequence
-        |> Encode.encode
-        |> hashBytes initialState
+    hashBytes initialState << Encode.encode << Encode.sequence << go []
 
 
-{-| Create a digest from a [`Bytes`](https://package.elm-lang.org/packages/elm/bytes/latest/)
+{-| Turn a digest into `List Int`
 
-    import Bytes.Encode as Encode
-    import Bytes exposing (Bytes, Endianness(..))
-
-    buffer : Bytes
-    buffer = Encode.encode (Encode.unsignedInt32 BE 42)
-
-    SHA1.fromElmBytes buffer
-        |> SHA1.toHex
-        --> "25f0c736f1fad0770bbb9a265ded159517c1e68c"
+    "And the band begins to play"
+        |> SHA1.fromString
+        |> SHA1.toByteValues
+    --> [ 0xF3, 0x08, 0x73, 0x13
+    --> , 0xD6, 0xBC, 0xE5, 0x5B
+    --> , 0x60, 0x0C, 0x69, 0x2F
+    --> , 0xE0, 0x92, 0xF4, 0x53
+    --> , 0x87, 0x3F, 0xAE, 0x91
+    --> ]
 
 -}
-fromElmBytes : Bytes -> Digest
-fromElmBytes =
-    hashBytes initialState
+toByteValues : Digest -> List Int
+toByteValues (Digest { a, b, c, d, e }) =
+    List.concatMap wordToByteValues [ a, b, c, d, e ]
 
 
 
@@ -315,25 +387,7 @@ rotateLeftBy amount i =
 
 
 
--- FORMATTING
-
-
-{-| Turn a digest into `List Int`
-
-    "And the band begins to play"
-        |> SHA1.fromString
-        |> SHA1.toBytes
-    --> [ 0xF3, 0x08, 0x73, 0x13
-    --> , 0xD6, 0xBC, 0xE5, 0x5B
-    --> , 0x60, 0x0C, 0x69, 0x2F
-    --> , 0xE0, 0x92, 0xF4, 0x53
-    --> , 0x87, 0x3F, 0xAE, 0x91
-    --> ]
-
--}
-toBytes : Digest -> List Int
-toBytes (Digest { a, b, c, d, e }) =
-    List.concatMap wordToByteValues [ a, b, c, d, e ]
+-- FORMATTING HELPERS
 
 
 wordToByteValues : Int -> List Int
@@ -369,30 +423,6 @@ toEncoder (Digest { a, b, c, d, e }) =
         ]
 
 
-{-| Turn a digest into `Bytes`.
-
-The digest is stored as 5 big-endian 32-bit unsigned integers, so the width is 20 bytes or 160 bits.
-
--}
-toElmBytes : Digest -> Bytes
-toElmBytes =
-    Encode.encode << toEncoder
-
-
-{-| One of the two canonical ways of representing a SHA-1 digest is with 40
-hexadecimal digits.
-
-    "And our friends are all aboard"
-        |> SHA1.fromString
-        |> SHA1.toHex
-    --> "f9a0c23ddcd40f6956b0cf59cd9b8800d71de73d"
-
--}
-toHex : Digest -> String
-toHex (Digest { a, b, c, d, e }) =
-    wordToHex a ++ wordToHex b ++ wordToHex c ++ wordToHex d ++ wordToHex e
-
-
 wordToHex : Int -> String
 wordToHex byte =
     byte
@@ -403,33 +433,7 @@ wordToHex byte =
 
 
 
--- Base64 uses 1 character per 6 bits, which doesn't divide very nicely into our
--- 5 32-bit  integers! The  base64 digest  is 28  characters long,  although the
--- final character  is a '=',  which means it's  padded. Therefore, it  uses 162
--- bits  of entropy  to display  our 160  bit  digest, so  the digest  has 2  0s
--- appended.
-
-
-{-| One of the two canonical ways of representing a SHA-1 digest is in a 20
-digit long Base64 binary to ASCII text encoding.
-
-    "Many more of them live next door"
-        |> SHA1.fromString
-        |> SHA1.toBase64
-    --> "jfL0oVb5xakab6BMLplGe2XPbj8="
-
--}
-toBase64 : Digest -> String
-toBase64 digest =
-    digest
-        |> toEncoder
-        |> Encode.encode
-        |> Base64.fromBytes
-        |> Maybe.withDefault ""
-
-
-
--- HELPERS
+-- GENERIC HELPERS
 
 
 {-| Iterate a decoder `n` times

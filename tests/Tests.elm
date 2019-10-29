@@ -11,6 +11,7 @@ import Hex
 import Random exposing (Generator)
 import Result exposing (Result)
 import SHA1
+import String.UTF8
 import Test exposing (..)
 
 
@@ -19,7 +20,7 @@ type TestCase
 
 
 type Input
-    = FromBytes (List Int)
+    = FromByteValues (List Int)
     | FromString String
 
 
@@ -27,16 +28,44 @@ type alias Digest =
     { a : Int, b : Int, c : Int, d : Int, e : Int }
 
 
-fuzzDigest : Fuzz.Fuzzer Digest
-fuzzDigest =
-    Fuzz.map5 Digest
-        (Fuzz.intRange 0 0xFFFFFFFF)
-        (Fuzz.intRange 0 0xFFFFFFFF)
-        (Fuzz.intRange 0 0xFFFFFFFF)
-        (Fuzz.intRange 0 0xFFFFFFFF)
-        (Fuzz.intRange 0 0xFFFFFFFF)
+suite : Test
+suite =
+    describe "SHA-1"
+        [ describe "from bytes" fromBytes
+        , describe "bit operations" bitOperations
+        , describe "CAVS test suite"
+            [ describe "long" (List.map cavsHelper Long.tests)
+            , describe "short" (List.map cavsHelper Short.tests)
+            ]
+        , describe "fuzzed inputs" fuzzedInputs
+        , fromWikipedia
+            ++ unicode
+            ++ fromDevRandom
+            ++ weirdBytes
+            |> List.map makeTest
+            |> describe "other examples"
+        ]
 
 
+fuzzedInputs : List Test
+fuzzedInputs =
+    [ fuzz Fuzz.string "fromString vs fromByteValues vs fromBytes" <|
+        \string ->
+            let
+                digestFromString =
+                    SHA1.fromString string
+
+                digestFromByteValues =
+                    SHA1.fromByteValues (String.UTF8.toBytes string)
+
+                digestFromBytes =
+                    SHA1.fromBytes (Encode.encode <| Encode.string string)
+            in
+            Expect.true "all digests equal" (digestFromString == digestFromBytes && digestFromBytes == digestFromByteValues)
+    ]
+
+
+bitOperations : List Test
 bitOperations =
     let
         rotateLeftBy : Int -> Int -> Int
@@ -128,74 +157,18 @@ bitOperations =
     ]
 
 
+fuzzDigest : Fuzz.Fuzzer Digest
+fuzzDigest =
+    Fuzz.map5 Digest
+        (Fuzz.intRange 0 0xFFFFFFFF)
+        (Fuzz.intRange 0 0xFFFFFFFF)
+        (Fuzz.intRange 0 0xFFFFFFFF)
+        (Fuzz.intRange 0 0xFFFFFFFF)
+        (Fuzz.intRange 0 0xFFFFFFFF)
+
+
 x =
     200000
-
-
-suite : Test
-suite =
-    if True then
-        describe "SHA-1"
-            [ describe "from bytes" fromBytes
-            , describe "bit operations" bitOperations
-            , describe "CAVS test suite"
-                [ describe "long" (List.map cavsHelper Long.tests)
-                , describe "short" (List.map cavsHelper Short.tests)
-                ]
-            , fromWikipedia
-                ++ unicode
-                ++ fromDevRandom
-                ++ weirdBytes
-                |> List.map makeTest
-                |> describe "examples"
-            ]
-
-    else if True then
-        let
-            foo i =
-                test ("with Bytes " ++ String.fromInt i) <|
-                    \_ ->
-                        let
-                            hex =
-                                "707d33fe36b8bf5d21568058370ad9b70c5d1bfc"
-
-                            data =
-                                List.repeat x 184
-                        in
-                        data
-                            |> List.map Encode.unsignedInt8
-                            |> Encode.sequence
-                            |> Encode.encode
-                            |> SHA1.fromElmBytes
-                            |> SHA1.toHex
-                            |> Expect.equal hex
-        in
-        List.repeat 10 foo
-            |> List.indexedMap (\i f -> f i)
-            |> describe "bytes test"
-
-    else
-        let
-            str =
-                "fox"
-
-            hex =
-                "ff0f0a8b656f0b44c26933acd2e367b6c1211290"
-
-            ( description, digest, encoder ) =
-                ( "String: " ++ str, SHA1.fromString str, Encode.string str )
-        in
-        describe description
-            [ test "Hex representation" <|
-                \_ -> Expect.equal (SHA1.toHex digest) hex
-            , test "with Bytes" <|
-                \_ ->
-                    encoder
-                        |> Encode.encode
-                        |> SHA1.fromElmBytes
-                        |> SHA1.toHex
-                        |> Expect.equal hex
-            ]
 
 
 fromWikipedia : List TestCase
@@ -222,16 +195,16 @@ fromDevRandom =
 
 fromBytes : List Test
 fromBytes =
-    [ makeTestHelp (FromBytes (List.range 0 255)) "4916d6bdb7f78e6803698cab32d1586ea457dfc8" "SRbWvbf3jmgDaYyrMtFYbqRX38g="
-    , makeTestHelp (FromBytes (List.repeat x 184)) "707d33fe36b8bf5d21568058370ad9b70c5d1bfc" "cH0z/ja4v10hVoBYNwrZtwxdG/w="
+    [ makeTestHelp (FromByteValues (List.range 0 255)) "4916d6bdb7f78e6803698cab32d1586ea457dfc8" "SRbWvbf3jmgDaYyrMtFYbqRX38g="
+    , makeTestHelp (FromByteValues (List.repeat x 184)) "707d33fe36b8bf5d21568058370ad9b70c5d1bfc" "cH0z/ja4v10hVoBYNwrZtwxdG/w="
     ]
 
 
 weirdBytes : List TestCase
 weirdBytes =
-    [ TestCase (FromBytes (List.repeat 64 54 ++ List.repeat 310 46)) "08afccd24bce328ae74661653ca103df02cba690" "CK/M0kvOMornRmFlPKED3wLLppA="
-    , TestCase (FromBytes (List.repeat 64 54 ++ List.repeat 311 46)) "bd8b2089549d57a05becbace5112c2c593b1af8b" "vYsgiVSdV6Bb7LrOURLCxZOxr4s="
-    , TestCase (FromBytes (List.repeat 64 54 ++ List.repeat 312 46)) "c6045cfc2468675660d3ff788225229c6b7ab422" "xgRc/CRoZ1Zg0/94giUinGt6tCI="
+    [ TestCase (FromByteValues (List.repeat 64 54 ++ List.repeat 310 46)) "08afccd24bce328ae74661653ca103df02cba690" "CK/M0kvOMornRmFlPKED3wLLppA="
+    , TestCase (FromByteValues (List.repeat 64 54 ++ List.repeat 311 46)) "bd8b2089549d57a05becbace5112c2c593b1af8b" "vYsgiVSdV6Bb7LrOURLCxZOxr4s="
+    , TestCase (FromByteValues (List.repeat 64 54 ++ List.repeat 312 46)) "c6045cfc2468675660d3ff788225229c6b7ab422" "xgRc/CRoZ1Zg0/94giUinGt6tCI="
     ]
 
 
@@ -245,23 +218,23 @@ makeTestHelp input hex base64 =
         ( description, digest ) =
             case input of
                 FromString str ->
-                    ( "String: " ++ str
+                    ( "string: " ++ str
                     , SHA1.fromString str
                     )
 
-                FromBytes bytes ->
-                    ( String.fromInt (List.length bytes) ++ " bytes"
-                    , SHA1.fromBytes bytes
+                FromByteValues bytes ->
+                    ( String.fromInt (List.length bytes) ++ " byte values"
+                    , SHA1.fromByteValues bytes
                     )
     in
     describe description
-        [ test "Hex representation" <|
+        [ test "hex representation" <|
             \_ -> Expect.equal (SHA1.toHex digest) hex
-        , test "Base64 representation" <|
+        , test "base64 representation" <|
             \_ -> Expect.equal (SHA1.toBase64 digest) base64
-        , test "Raw bytes" <|
+        , test "byte values" <|
             \_ ->
-                SHA1.toBytes digest
+                SHA1.toByteValues digest
                     |> List.map (Hex.toString >> String.padLeft 2 '0')
                     |> String.concat
                     |> Expect.equal hex
@@ -277,13 +250,13 @@ cavsHelper ( hex, bytes ) =
                     |> List.map Encode.unsignedInt8
                     |> Encode.sequence
                     |> Encode.encode
-                    |> SHA1.fromElmBytes
+                    |> SHA1.fromBytes
                     |> SHA1.toHex
                     |> Expect.equal hex
         , test "byte values" <|
             \_ ->
                 bytes
-                    |> SHA1.fromBytes
+                    |> SHA1.fromByteValues
                     |> SHA1.toHex
                     |> Expect.equal hex
         ]
