@@ -134,68 +134,15 @@ x =
 
 suite : Test
 suite =
-    if True then
-        describe "SHA-1"
-            [ describe "from bytes" fromBytes
-            , describe "bit operations" bitOperations
-            , describe "CAVS test suite"
-                [ describe "long" (List.map cavsHelper Long.tests)
-                , describe "short" (List.map cavsHelper Short.tests)
-                ]
-            , fromWikipedia
-                ++ unicode
-                ++ fromDevRandom
-                ++ weirdBytes
-                |> List.map makeTest
-                |> describe "examples"
-            ]
-
-    else if True then
-        let
-            foo i =
-                test ("with Bytes " ++ String.fromInt i) <|
-                    \_ ->
-                        let
-                            hex =
-                                "707d33fe36b8bf5d21568058370ad9b70c5d1bfc"
-
-                            data =
-                                List.repeat x 184
-                        in
-                        data
-                            |> List.map Encode.unsignedInt8
-                            |> Encode.sequence
-                            |> Encode.encode
-                            |> SHA1.fromBytes
-                            |> SHA1.toHex
-                            |> Expect.equal hex
-        in
-        List.repeat 10 foo
-            |> List.indexedMap (\i f -> f i)
-            |> describe "bytes test"
-
-    else
-        let
-            str =
-                "fox"
-
-            hex =
-                "ff0f0a8b656f0b44c26933acd2e367b6c1211290"
-
-            ( description, digest, encoder ) =
-                ( "String: " ++ str, SHA1.fromString str, Encode.string str )
-        in
-        describe description
-            [ test "Hex representation" <|
-                \_ -> Expect.equal (SHA1.toHex digest) hex
-            , test "with Bytes" <|
-                \_ ->
-                    encoder
-                        |> Encode.encode
-                        |> SHA1.fromBytes
-                        |> SHA1.toHex
-                        |> Expect.equal hex
-            ]
+    describe "SHA-1"
+        [ describe "bit operations" bitOperations
+        , fromWikipedia
+            ++ unicode
+            ++ fromDevRandom
+            ++ weirdBytes
+            |> List.map makeTest
+            |> describe "examples"
+        ]
 
 
 fromWikipedia : List TestCase
@@ -251,7 +198,7 @@ makeTestHelp input hex base64 =
 
                 FromBytes bytes ->
                     ( String.fromInt (List.length bytes) ++ " bytes"
-                    , SHA1.fromByteValues bytes
+                    , SHA1.fromBytes bytes
                     )
     in
     describe description
@@ -261,21 +208,8 @@ makeTestHelp input hex base64 =
             \_ -> Expect.equal (SHA1.toBase64 digest) base64
         , test "Raw bytes" <|
             \_ ->
-                SHA1.toByteValues digest
+                SHA1.toBytes digest
                     |> List.map (Hex.toString >> String.padLeft 2 '0')
                     |> String.concat
                     |> Expect.equal hex
         ]
-
-
-cavsHelper : ( String, List Int ) -> Test
-cavsHelper ( hex, bytes ) =
-    test (Debug.toString bytes) <|
-        \_ ->
-            bytes
-                |> List.map Encode.unsignedInt8
-                |> Encode.sequence
-                |> Encode.encode
-                |> SHA1.fromBytes
-                |> SHA1.toHex
-                |> Expect.equal hex

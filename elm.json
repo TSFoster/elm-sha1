@@ -3,7 +3,7 @@
     "name": "TSFoster/elm-sha1",
     "summary": "Generate SHA1 digests of strings or arbitrary data",
     "license": "BSD-3-Clause",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "exposed-modules": [
         "SHA1"
     ],

@@ -3,7 +3,6 @@ module SHA1 exposing
     , fromString
     , toHex, toBase64
     , fromBytes, toBytes
-    , fromByteValues, toByteValues
     )
 
 {-| [SHA-1] is a [cryptographic hash function].
@@ -39,7 +38,6 @@ the bytes.
 # Binary data
 
 @docs fromBytes, toBytes
-@docs fromByteValues, toByteValues
 
 -}
 
@@ -113,15 +111,15 @@ fromString =
 a digest from the raw "bytes", i.e. a `List` of `Int`s. Any items not between 0
 and 255 are discarded.
 
-    SHA1.fromByteValues [72, 105, 33, 32, 240, 159, 152, 132]
+    SHA1.fromBytes [72, 105, 33, 32, 240, 159, 152, 132]
     --> SHA1.fromString "Hi! 😄"
 
-    [0x00, 0xFF, 0x34, 0xA5] |> SHA1.fromByteValues |> SHA1.toBase64
+    [0x00, 0xFF, 0x34, 0xA5] |> SHA1.fromBytes |> SHA1.toBase64
     --> "sVQuFckyE6K3fsdLmLHmq8+J738="
 
 -}
-fromByteValues : List Int -> Digest
-fromByteValues input =
+fromBytes : List Int -> Digest
+fromBytes input =
     let
         -- try to use unsignedInt32 to represent 4 bytes
         -- much more efficient for large inputs
@@ -148,24 +146,6 @@ fromByteValues input =
         |> Encode.sequence
         |> Encode.encode
         |> hashBytes initialState
-
-
-{-| Create a digest from a [`Bytes`](https://package.elm-lang.org/packages/elm/bytes/latest/)
-
-    import Bytes.Encode as Encode
-    import Bytes exposing (Bytes, Endianness(..))
-
-    buffer : Bytes
-    buffer = Encode.encode (Encode.unsignedInt32 BE 42)
-
-    SHA1.fromBytes buffer
-        |> SHA1.toHex
-        --> "25f0c736f1fad0770bbb9a265ded159517c1e68c"
-
--}
-fromBytes : Bytes -> Digest
-fromBytes =
-    hashBytes initialState
 
 
 
@@ -324,7 +304,7 @@ looking for!
 
     "And the band begins to play"
         |> SHA1.fromString
-        |> SHA1.toByteValues
+        |> SHA1.toBytes
     --> [ 0xF3, 0x08, 0x73, 0x13
     --> , 0xD6, 0xBC, 0xE5, 0x5B
     --> , 0x60, 0x0C, 0x69, 0x2F
@@ -333,8 +313,8 @@ looking for!
     --> ]
 
 -}
-toByteValues : Digest -> List Int
-toByteValues (Digest { a, b, c, d, e }) =
+toBytes : Digest -> List Int
+toBytes (Digest { a, b, c, d, e }) =
     List.concatMap wordToBytes [ a, b, c, d, e ]
 
 
@@ -369,16 +349,6 @@ toEncoder (Digest { a, b, c, d, e }) =
         , Encode.unsignedInt32 BE d
         , Encode.unsignedInt32 BE e
         ]
-
-
-{-| Turn a digest into `Bytes`.
-
-The digest is stored as 5 big-endian 32-bit unsigned integers, so the width is 20 bytes or 160 bits.
-
--}
-toBytes : Digest -> Bytes
-toBytes =
-    Encode.encode << toEncoder
 
 
 {-| One of the two canonical ways of representing a SHA-1 digest is with 40
