@@ -4,6 +4,7 @@ module SHA1 exposing
     , toHex, toBase64
     , fromBytes, toBytes
     , fromByteValues, toByteValues
+    , toInt32s
     )
 
 {-| [SHA-1] is a [cryptographic hash function].
@@ -47,6 +48,11 @@ can use `fromByteValues` and `toByteValues`.
 [elm/bytes]: https://package.elm-lang.org/packages/elm/bytes/latest/
 
 @docs fromByteValues, toByteValues
+
+
+# Advanced usage
+
+@docs toInt32s
 
 -}
 
@@ -250,6 +256,26 @@ fromByteValues =
 toByteValues : Digest -> List Int
 toByteValues (Digest { a, b, c, d, e }) =
     List.concatMap wordToByteValues [ a, b, c, d, e ]
+
+
+{-| Internally, `Digest` models its 160 bits of data in 5 (unsigned 32-bit)
+`Int`s. If you really want to get the raw digest data for your own data
+processing, this function will allow you to do that.
+
+    "And the band begins to play"
+        |> SHA1.fromString
+        |> SHA1.toInt32s
+    --> { a = 0xF3087313
+    --> , b = 0xD6BCE55B
+    --> , c = 0x600C692F
+    --> , d = 0xE092F453
+    --> , e = 0x873FAE91
+    --> }
+
+-}
+toInt32s : Digest -> { a : Int, b : Int, c : Int, d : Int, e : Int }
+toInt32s (Digest digest) =
+    digest
 
 
 
