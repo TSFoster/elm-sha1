@@ -92,6 +92,18 @@ type State
     = State Tuple5
 
 
+stateToDigest : State -> Digest
+stateToDigest (State { a, b, c, d, e }) =
+    Digest
+        -- `shiftRightZfBy 0` forces Int to be unsigned
+        { a = Bitwise.shiftRightZfBy 0 a
+        , b = Bitwise.shiftRightZfBy 0 b
+        , c = Bitwise.shiftRightZfBy 0 c
+        , d = Bitwise.shiftRightZfBy 0 d
+        , e = Bitwise.shiftRightZfBy 0 e
+        }
+
+
 initialState : State
 initialState =
     State (Tuple5 0x67452301 0xEFCDAB89 0x98BADCFE 0x10325476 0xC3D2E1F0)
@@ -282,14 +294,9 @@ hashBytes state bytes =
         hashState =
             iterate numberOfChunks reduceChunk state
     in
-    case Decode.decode hashState message of
-        Just (State r) ->
-            Digest r
-
-        Nothing ->
-            case state of
-                State tuple8 ->
-                    Digest tuple8
+    Decode.decode hashState message
+        |> Maybe.withDefault state
+        |> stateToDigest
 
 
 
@@ -426,8 +433,6 @@ toEncoder (Digest { a, b, c, d, e }) =
 wordToHex : Int -> String
 wordToHex byte =
     byte
-        -- force integer to be unsigned
-        |> Bitwise.shiftRightZfBy 0
         |> Hex.toString
         |> String.padLeft 8 '0'
 
