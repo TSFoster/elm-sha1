@@ -105,14 +105,12 @@ suite =
                     value
                         |> rotateLeftBy n
                         |> rotateLeftBy (32 - n)
-                        -- |> Bitwise.and 0xFFFFFFFF
                         |> Expect.equal value
             , fuzz (Fuzz.tuple ( Fuzz.intRange 0 0xFFFFFFFF, Fuzz.intRange 0 32 )) "rotate right" <|
                 \( value, n ) ->
                     value
                         |> rotateRightBy n
                         |> rotateRightBy (32 - n)
-                        -- |> Bitwise.and 0xFFFFFFFF
                         |> Expect.equal value
             , test "small sigma 1" <|
                 \_ ->
