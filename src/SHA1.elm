@@ -234,7 +234,7 @@ fromByteValues =
     hashBytes initialState << Encode.encode << Encode.sequence << go []
 
 
-{-| Turn a digest into `List Int`
+{-| Turn a digest into `List Int`, each `Int` representing a byte of data.
 
     "And the band begins to play"
         |> SHA1.fromString
