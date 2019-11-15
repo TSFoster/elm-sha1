@@ -1,4 +1,4 @@
-.PHONY: help test bump publish clean format disclean 
+.PHONY: help test bump publish clean format distclean
 .INTERMEDIATE: cavs/*.rs
 
 
