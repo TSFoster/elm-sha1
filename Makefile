@@ -1,14 +1,21 @@
-.PHONY: help test clean format disclean
-.INTERMEDIATE: cavs/*.rsp
+.PHONY: help test bump publish clean format disclean 
+.INTERMEDIATE: cavs/*.rs
 
 
-GAWK := gawk
 CURL := curl
 ELM := elm
 ELM_FORMAT := elm-format
 ELM_TEST := elm-test
 ELM_VERIFY_EXAMPLES := elm-verify-examples
+GAWK := gawk
+GIT := git
+JQ := jq
 RIMRAF := rm -rf
+
+REMOTE := origin
+
+BUMP_COMMIT_MSG := version bump
+VERSION_TAG_MSG := new release
 
 
 # The default goal
@@ -17,6 +24,8 @@ help:
 	@echo '  help'
 	@echo '  test'
 	@echo '  format'
+	@echo '  bump'
+	@echo '  publish'
 	@echo '  clean'
 	@echo '  distclean'
 
@@ -40,6 +49,23 @@ cavs/%.rsp:
 
 tests/VerifyExamples:
 	$(ELM_VERIFY_EXAMPLES)
+
+
+bump: test
+	$(ELM) bump
+	mv package.json package.old.json
+	$(JQ) ".version |= $$($(JQ) .version elm.json)" package.old.json > package.json
+	rm package.old.json
+
+
+publish:
+	[ -z "$$($(GIT) status --porcelain)" ]
+	$(MAKE) bump
+	[ -n "$$($(GIT) status --porcelain)" ] && $(GIT) add elm.json package.json && $(GIT) commit -m '$(BUMP_COMMIT_MSG)'
+	$(GIT) tag -a "$$($(JQ) -r .version elm.json)" -m '$(VERSION_TAG_MSG)'
+	$(GIT) push $(REMOTE) $$($(GIT) branch --show-current) --set-upstream
+	$(GIT) push $(REMOTE) "$$($(JQ) -r .version elm.json)"
+	$(ELM) publish
 
 
 clean:
