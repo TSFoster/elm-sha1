@@ -68,11 +68,6 @@ import Hex
 -- CONSTANTS
 
 
-blockSize : Int
-blockSize =
-    64
-
-
 numberOfWords : Int
 numberOfWords =
     16
@@ -363,7 +358,14 @@ reduceChunkHelp (State initial) b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12 b13 b14 b
         (DeltaState { a, b, c, d, e }) =
             reduceWords 0 initialDeltaState b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12 b13 b14 b15 b16
     in
-    State (Tuple5 (initial.a + a) (initial.b + b) (initial.c + c) (initial.d + d) (initial.e + e))
+    -- State (Tuple5 (initial.a + a) (initial.b + b) (initial.c + c) (initial.d + d) (initial.e + e))
+    State
+        { a = initial.a + a
+        , b = initial.b + b
+        , c = initial.c + c
+        , d = initial.d + d
+        , e = initial.e + e
+        }
 
 
 {-| Fold over the words, calculate the delta and combine with the delta state.
@@ -374,16 +376,77 @@ Then the `deltaState` is also updated with the `value`.
 
 -}
 reduceWords i deltaState b16 b15 b14 b13 b12 b11 b10 b9 b8 b7 b6 b5 b4 b3 b2 b1 =
-    if (i - blockSize) < 0 then
+    -- 64 is the Sha1 block size
+    if i < 64 then
         let
-            value =
+            value1 =
                 b3
                     |> Bitwise.xor b8
                     |> Bitwise.xor b14
                     |> Bitwise.xor b16
                     |> rotateLeftBy 1
+
+            value2 =
+                b2
+                    |> Bitwise.xor b7
+                    |> Bitwise.xor b13
+                    |> Bitwise.xor b15
+                    |> rotateLeftBy 1
+
+            value3 =
+                b1
+                    |> Bitwise.xor b6
+                    |> Bitwise.xor b12
+                    |> Bitwise.xor b14
+                    |> rotateLeftBy 1
+
+            value4 =
+                value1
+                    |> Bitwise.xor b5
+                    |> Bitwise.xor b11
+                    |> Bitwise.xor b13
+                    |> rotateLeftBy 1
+
+            value5 =
+                value2
+                    |> Bitwise.xor b4
+                    |> Bitwise.xor b10
+                    |> Bitwise.xor b12
+                    |> rotateLeftBy 1
+
+            value6 =
+                value3
+                    |> Bitwise.xor b3
+                    |> Bitwise.xor b9
+                    |> Bitwise.xor b11
+                    |> rotateLeftBy 1
+
+            value7 =
+                value4
+                    |> Bitwise.xor b2
+                    |> Bitwise.xor b8
+                    |> Bitwise.xor b10
+                    |> rotateLeftBy 1
+
+            value8 =
+                value5
+                    |> Bitwise.xor b1
+                    |> Bitwise.xor b7
+                    |> Bitwise.xor b9
+                    |> rotateLeftBy 1
+
+            newState =
+                deltaState
+                    |> calculateDigestDeltas (i + numberOfWords) value1
+                    |> calculateDigestDeltas (i + 1 + numberOfWords) value2
+                    |> calculateDigestDeltas (i + 2 + numberOfWords) value3
+                    |> calculateDigestDeltas (i + 3 + numberOfWords) value4
+                    |> calculateDigestDeltas (i + 4 + numberOfWords) value5
+                    |> calculateDigestDeltas (i + 5 + numberOfWords) value6
+                    |> calculateDigestDeltas (i + 6 + numberOfWords) value7
+                    |> calculateDigestDeltas (i + 7 + numberOfWords) value8
         in
-        reduceWords (i + 1) (calculateDigestDeltas (i + numberOfWords) value deltaState) b15 b14 b13 b12 b11 b10 b9 b8 b7 b6 b5 b4 b3 b2 b1 value
+        reduceWords (i + 8) newState b8 b7 b6 b5 b4 b3 b2 b1 value1 value2 value3 value4 value5 value6 value7 value8
 
     else
         deltaState
@@ -410,7 +473,7 @@ calculateDigestDeltas index int (DeltaState { a, b, c, d, e }) =
         newA =
             rotateLeftBy 5 a + f + e + int
     in
-    DeltaState (Tuple5 newA a (rotateLeftBy 30 b) c d)
+    DeltaState { a = newA, b = a, c = rotateLeftBy 30 b, d = c, e = d }
 
 
 rotateLeftBy : Int -> Int -> Int
