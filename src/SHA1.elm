@@ -384,56 +384,56 @@ reduceWords i deltaState b16 b15 b14 b13 b12 b11 b10 b9 b8 b7 b6 b5 b4 b3 b2 b1 
                     |> Bitwise.xor b8
                     |> Bitwise.xor b14
                     |> Bitwise.xor b16
-                    |> rotateLeftBy 1
+                    |> rotateLeftBy1
 
             value2 =
                 b2
                     |> Bitwise.xor b7
                     |> Bitwise.xor b13
                     |> Bitwise.xor b15
-                    |> rotateLeftBy 1
+                    |> rotateLeftBy1
 
             value3 =
                 b1
                     |> Bitwise.xor b6
                     |> Bitwise.xor b12
                     |> Bitwise.xor b14
-                    |> rotateLeftBy 1
+                    |> rotateLeftBy1
 
             value4 =
                 value1
                     |> Bitwise.xor b5
                     |> Bitwise.xor b11
                     |> Bitwise.xor b13
-                    |> rotateLeftBy 1
+                    |> rotateLeftBy1
 
             value5 =
                 value2
                     |> Bitwise.xor b4
                     |> Bitwise.xor b10
                     |> Bitwise.xor b12
-                    |> rotateLeftBy 1
+                    |> rotateLeftBy1
 
             value6 =
                 value3
                     |> Bitwise.xor b3
                     |> Bitwise.xor b9
                     |> Bitwise.xor b11
-                    |> rotateLeftBy 1
+                    |> rotateLeftBy1
 
             value7 =
                 value4
                     |> Bitwise.xor b2
                     |> Bitwise.xor b8
                     |> Bitwise.xor b10
-                    |> rotateLeftBy 1
+                    |> rotateLeftBy1
 
             value8 =
                 value5
                     |> Bitwise.xor b1
                     |> Bitwise.xor b7
                     |> Bitwise.xor b9
-                    |> rotateLeftBy 1
+                    |> rotateLeftBy1
 
             newState =
                 deltaState
@@ -470,8 +470,13 @@ calculateDigestDeltas index int (DeltaState { a, b, c, d, e }) =
                 _ ->
                     Bitwise.xor b (Bitwise.xor c d) + 0xCA62C1D6
 
+        shiftedA =
+            -- rotateLeftBy 5 a
+            Bitwise.or (Bitwise.shiftRightZfBy (32 - 5) a) (Bitwise.shiftLeftBy 5 a)
+
         newA =
-            rotateLeftBy 5 a + f + e + int
+            (shiftedA + f + e + int)
+                |> Bitwise.shiftRightZfBy 0
     in
     DeltaState { a = newA, b = a, c = rotateLeftBy 30 b, d = c, e = d }
 
@@ -480,6 +485,12 @@ rotateLeftBy : Int -> Int -> Int
 rotateLeftBy amount i =
     Bitwise.or (Bitwise.shiftRightZfBy (32 - amount) i) (Bitwise.shiftLeftBy amount i)
         |> Bitwise.shiftRightZfBy 0
+
+
+rotateLeftBy1 : Int -> Int
+rotateLeftBy1 i =
+    -- because of how `rotateLeftBy1` is used, the `Bitwise.shiftRightZfBy 0` is not required
+    Bitwise.or (Bitwise.shiftRightZfBy 31 i) (Bitwise.shiftLeftBy 1 i)
 
 
 
