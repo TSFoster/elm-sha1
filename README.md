@@ -76,6 +76,8 @@ SHA1.toByteValues digest3
 
 Not officially validated through [CAVP]/[CMVP], although digests are tested against CAVS responses via [pyca/cryptography].
 
+Validation tests can be run by executing `make cavs`. This requires make, curl, elm, elm-test and gawk. Alternatively, to run all tests, execute `make test` (which also requires elm-format and elm-verify-examples). See the [`Makefile`](./Makefile) for details.
+
 This package is also tested against additional hashes in the documentation (using [elm-verify-examples]), [tests/Tests.elm], and indirectly via [romariolopezc/elm-hmac-sha1’s tests][hmac-tests], and [TSFoster/elm-uuid’s tests][uuid-tests].
 
 Please note that SHA-1 is not “[considered secure against well-funded opponents][sha1-wiki]”, but it does have its uses, including, but not limited to, [version 5 UUIDs][uuid-use].
@@ -91,6 +93,7 @@ Please note that SHA-1 is not “[considered secure against well-funded opponent
 
 [sha1-wiki]: https://en.wikipedia.org/wiki/SHA-1
 [uuid-use]: https://package.elm-lang.org/packages/TSFoster/elm-uuid/latest/UUID#childNamed
+
 
 
 ## Contributors

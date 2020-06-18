@@ -1,4 +1,4 @@
-.PHONY: help test bump publish clean format distclean
+.PHONY: help test cavs bump publish clean format distclean
 .INTERMEDIATE: cavs/*.rs
 
 
@@ -30,8 +30,13 @@ help:
 	@echo '  distclean'
 
 
+# This --compiler=... bit was to do with a bug in elm-test or travis that may or may not have been fixed by now
 test: format tests/VerifyExamples tests/Generated/SHA1LongMsg.elm tests/Generated/SHA1ShortMsg.elm
 	$(ELM_TEST) --compiler=$$(which $(ELM))
+
+
+cavs: tests/Generated/SHA1LongMsg.elm tests/Generated/SHA1ShortMsg.elm
+	$(ELM_TEST) --compiler=$$(which $(ELM)) $^
 
 
 format: clean
