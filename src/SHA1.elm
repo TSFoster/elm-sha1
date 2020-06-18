@@ -65,20 +65,16 @@ import Hex
 
 
 
--- CONSTANTS
-
-
-numberOfWords : Int
-numberOfWords =
-    16
-
-
-
 -- TYPES
 
 
 type alias Tuple5 =
-    { a : Int, b : Int, c : Int, d : Int, e : Int }
+    { a : Int
+    , b : Int
+    , c : Int
+    , d : Int
+    , e : Int
+    }
 
 
 {-| A type to represent a message digest. `SHA1.Digest`s are equatable, and you may
@@ -334,6 +330,7 @@ reduceChunk state =
     map16 (reduceChunkHelp state) u32 u32 u32 u32 u32 u32 u32 u32 u32 u32 u32 u32 u32 u32 u32 u32
 
 
+reduceChunkHelp : State -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> State
 reduceChunkHelp (State initial) b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12 b13 b14 b15 b16 =
     let
         initialDeltaState =
@@ -374,6 +371,7 @@ So in the recursion, `b16` is dropped, all the others shift one position to the 
 Then the `deltaState` is also updated with the `value`.
 
 -}
+reduceWords : Int -> DeltaState -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> DeltaState
 reduceWords i ((DeltaState { a, b, c, d, e }) as deltaState) b16 b15 b14 b13 b12 b11 b10 b9 b8 b7 b6 b5 b4 b3 b2 b1 =
     -- 64 is the Sha1 block size
     if i /= 64 then
@@ -404,7 +402,7 @@ reduceWords i ((DeltaState { a, b, c, d, e }) as deltaState) b16 b15 b14 b13 b12
                 value5 |> Bitwise.xor b1 |> Bitwise.xor b7 |> Bitwise.xor b9 |> rotateLeftBy1
 
             newState =
-                calculateDigestDeltas 8 (i + numberOfWords) a b c d e value1 value2 value3 value4 value5 value6 value7 value8
+                calculateDigestDeltas 8 (i + 16) a b c d e value1 value2 value3 value4 value5 value6 value7 value8
         in
         reduceWords (i + 8) newState b8 b7 b6 b5 b4 b3 b2 b1 value1 value2 value3 value4 value5 value6 value7 value8
 
@@ -412,6 +410,7 @@ reduceWords i ((DeltaState { a, b, c, d, e }) as deltaState) b16 b15 b14 b13 b12
         deltaState
 
 
+calculateDigestDeltas : Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> DeltaState
 calculateDigestDeltas remaining index a b c d e v1 v2 v3 v4 v5 v6 v7 v8 =
     if remaining == 0 then
         DeltaState { a = a, b = b, c = c, d = d, e = e }
@@ -549,6 +548,7 @@ iterate n step initial =
     Decode.loop ( n, initial ) (loopHelp step)
 
 
+loopHelp : (a -> Decoder a) -> ( Int, a ) -> Decoder (Step ( Int, a ) a)
 loopHelp step ( n, state ) =
     if n > 0 then
         step state
