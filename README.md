@@ -96,11 +96,12 @@ Please note that SHA-1 is not “[considered secure against well-funded opponent
 ## Contributors
 
 Special thanks to [Folkert de Vries](https://github.com/folkertdev)
-for a major rewrite of this library, including huge [performance gains],
+for a major rewrite of this library, including huge [performance][perf-1] [gains][perf-2],
 more [rigorous testing], and support for [elm/bytes].
 More information can be found on [this Elm Discourse thread][bytes-thread].
 
-[performance gains]: https://github.com/TSFoster/elm-sha1/pull/7
+[perf-1]: https://github.com/TSFoster/elm-sha1/pull/7
+[perf-2]: https://github.com/TSFoster/elm-sha1/pull/8
 [rigorous testing]: https://github.com/TSFoster/elm-sha1/pull/6
 [bytes-thread]: https://discourse.elm-lang.org/t/fast-pure-elm-sha2-and-soon-sha1/4505
 
