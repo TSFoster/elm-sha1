@@ -68,11 +68,6 @@ import Hex
 -- CONSTANTS
 
 
-blockSize : Int
-blockSize =
-    64
-
-
 numberOfWords : Int
 numberOfWords =
     16
@@ -343,27 +338,33 @@ reduceChunkHelp (State initial) b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12 b13 b14 b
     let
         initialDeltaState =
             DeltaState initial
-                |> calculateDigestDeltas 0 b1
-                |> calculateDigestDeltas 1 b2
-                |> calculateDigestDeltas 2 b3
-                |> calculateDigestDeltas 3 b4
-                |> calculateDigestDeltas 4 b5
-                |> calculateDigestDeltas 5 b6
-                |> calculateDigestDeltas 6 b7
-                |> calculateDigestDeltas 7 b8
-                |> calculateDigestDeltas 8 b9
-                |> calculateDigestDeltas 9 b10
-                |> calculateDigestDeltas 10 b11
-                |> calculateDigestDeltas 11 b12
-                |> calculateDigestDeltas 12 b13
-                |> calculateDigestDeltas 13 b14
-                |> calculateDigestDeltas 14 b15
-                |> calculateDigestDeltas 15 b16
+                |> calculateDigestDeltasChunk 0 b1
+                |> calculateDigestDeltasChunk 1 b2
+                |> calculateDigestDeltasChunk 2 b3
+                |> calculateDigestDeltasChunk 3 b4
+                |> calculateDigestDeltasChunk 4 b5
+                |> calculateDigestDeltasChunk 5 b6
+                |> calculateDigestDeltasChunk 6 b7
+                |> calculateDigestDeltasChunk 7 b8
+                |> calculateDigestDeltasChunk 8 b9
+                |> calculateDigestDeltasChunk 9 b10
+                |> calculateDigestDeltasChunk 10 b11
+                |> calculateDigestDeltasChunk 11 b12
+                |> calculateDigestDeltasChunk 12 b13
+                |> calculateDigestDeltasChunk 13 b14
+                |> calculateDigestDeltasChunk 14 b15
+                |> calculateDigestDeltasChunk 15 b16
 
         (DeltaState { a, b, c, d, e }) =
             reduceWords 0 initialDeltaState b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12 b13 b14 b15 b16
     in
-    State (Tuple5 (initial.a + a) (initial.b + b) (initial.c + c) (initial.d + d) (initial.e + e))
+    State
+        { a = initial.a + a
+        , b = initial.b + b
+        , c = initial.c + c
+        , d = initial.d + d
+        , e = initial.e + e
+        }
 
 
 {-| Fold over the words, calculate the delta and combine with the delta state.
@@ -373,24 +374,84 @@ So in the recursion, `b16` is dropped, all the others shift one position to the 
 Then the `deltaState` is also updated with the `value`.
 
 -}
-reduceWords i deltaState b16 b15 b14 b13 b12 b11 b10 b9 b8 b7 b6 b5 b4 b3 b2 b1 =
-    if (i - blockSize) < 0 then
+reduceWords i ((DeltaState { a, b, c, d, e }) as deltaState) b16 b15 b14 b13 b12 b11 b10 b9 b8 b7 b6 b5 b4 b3 b2 b1 =
+    -- 64 is the Sha1 block size
+    if i /= 64 then
         let
-            value =
-                b3
-                    |> Bitwise.xor b8
-                    |> Bitwise.xor b14
-                    |> Bitwise.xor b16
-                    |> rotateLeftBy 1
+            -- unrolling further to value16 does not help
+            value1 =
+                b3 |> Bitwise.xor b8 |> Bitwise.xor b14 |> Bitwise.xor b16 |> rotateLeftBy1
+
+            value2 =
+                b2 |> Bitwise.xor b7 |> Bitwise.xor b13 |> Bitwise.xor b15 |> rotateLeftBy1
+
+            value3 =
+                b1 |> Bitwise.xor b6 |> Bitwise.xor b12 |> Bitwise.xor b14 |> rotateLeftBy1
+
+            value4 =
+                value1 |> Bitwise.xor b5 |> Bitwise.xor b11 |> Bitwise.xor b13 |> rotateLeftBy1
+
+            value5 =
+                value2 |> Bitwise.xor b4 |> Bitwise.xor b10 |> Bitwise.xor b12 |> rotateLeftBy1
+
+            value6 =
+                value3 |> Bitwise.xor b3 |> Bitwise.xor b9 |> Bitwise.xor b11 |> rotateLeftBy1
+
+            value7 =
+                value4 |> Bitwise.xor b2 |> Bitwise.xor b8 |> Bitwise.xor b10 |> rotateLeftBy1
+
+            value8 =
+                value5 |> Bitwise.xor b1 |> Bitwise.xor b7 |> Bitwise.xor b9 |> rotateLeftBy1
+
+            newState =
+                calculateDigestDeltas 8 (i + numberOfWords) a b c d e value1 value2 value3 value4 value5 value6 value7 value8
         in
-        reduceWords (i + 1) (calculateDigestDeltas (i + numberOfWords) value deltaState) b15 b14 b13 b12 b11 b10 b9 b8 b7 b6 b5 b4 b3 b2 b1 value
+        reduceWords (i + 8) newState b8 b7 b6 b5 b4 b3 b2 b1 value1 value2 value3 value4 value5 value6 value7 value8
 
     else
         deltaState
 
 
-calculateDigestDeltas : Int -> Int -> DeltaState -> DeltaState
-calculateDigestDeltas index int (DeltaState { a, b, c, d, e }) =
+calculateDigestDeltas remaining index a b c d e v1 v2 v3 v4 v5 v6 v7 v8 =
+    if remaining == 0 then
+        DeltaState { a = a, b = b, c = c, d = d, e = e }
+
+    else
+        let
+            int =
+                v1
+
+            -- benchmarks show integer division and cases on the integter are the fastest
+            f =
+                case index // 20 of
+                    0 ->
+                        Bitwise.or (Bitwise.and b c) (Bitwise.and (Bitwise.complement b) d) + 0x5A827999
+
+                    1 ->
+                        Bitwise.xor b (Bitwise.xor c d) + 0x6ED9EBA1
+
+                    2 ->
+                        Bitwise.or (Bitwise.and b (Bitwise.or c d)) (Bitwise.and c d) + 0x8F1BBCDC
+
+                    _ ->
+                        Bitwise.xor b (Bitwise.xor c d) + 0xCA62C1D6
+
+            shiftedA =
+                -- rotateLeftBy 5 a
+                Bitwise.or (Bitwise.shiftRightZfBy (32 - 5) a) (Bitwise.shiftLeftBy 5 a)
+
+            newA =
+                (shiftedA + f + e + int)
+                    |> Bitwise.shiftRightZfBy 0
+        in
+        calculateDigestDeltas (remaining - 1) (index + 1) newA a (rotateLeftBy 30 b) c d v2 v3 v4 v5 v6 v7 v8 0
+
+
+{-| For some reason, in `reduceChunkHelp` this function applied repeatedly is faster than using `calculateDigestDeltas`.
+But in `reduceWords` is it much slower.
+-}
+calculateDigestDeltasChunk : Int -> Int -> DeltaState -> DeltaState
+calculateDigestDeltasChunk index int (DeltaState { a, b, c, d, e }) =
     let
         -- benchmarks show integer division and cases on the integter are the fastest
         f =
@@ -407,16 +468,27 @@ calculateDigestDeltas index int (DeltaState { a, b, c, d, e }) =
                 _ ->
                     Bitwise.xor b (Bitwise.xor c d) + 0xCA62C1D6
 
+        shiftedA =
+            -- rotateLeftBy 5 a
+            Bitwise.or (Bitwise.shiftRightZfBy (32 - 5) a) (Bitwise.shiftLeftBy 5 a)
+
         newA =
-            rotateLeftBy 5 a + f + e + int
+            (shiftedA + f + e + int)
+                |> Bitwise.shiftRightZfBy 0
     in
-    DeltaState (Tuple5 newA a (rotateLeftBy 30 b) c d)
+    DeltaState { a = newA, b = a, c = rotateLeftBy 30 b, d = c, e = d }
 
 
 rotateLeftBy : Int -> Int -> Int
 rotateLeftBy amount i =
     Bitwise.or (Bitwise.shiftRightZfBy (32 - amount) i) (Bitwise.shiftLeftBy amount i)
         |> Bitwise.shiftRightZfBy 0
+
+
+rotateLeftBy1 : Int -> Int
+rotateLeftBy1 i =
+    -- because of how `rotateLeftBy1` is used, the `Bitwise.shiftRightZfBy 0` is not required
+    Bitwise.or (Bitwise.shiftRightZfBy 31 i) (Bitwise.shiftLeftBy 1 i)
 
 
 
