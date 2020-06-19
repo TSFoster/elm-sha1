@@ -11,6 +11,7 @@ GAWK := gawk
 GIT := git
 JQ := jq
 RIMRAF := rm -rf
+TEST := test
 
 REMOTE := origin
 
@@ -64,10 +65,12 @@ bump: test
 
 
 publish:
-	[ -z "$$($(GIT) status --porcelain)" ]
+	$(TEST) -z "$$($(GIT) status --porcelain)"
 	$(MAKE) bump
-	[ -n "$$($(GIT) status --porcelain)" ] && $(GIT) add elm.json package.json && $(GIT) commit -m '$(BUMP_COMMIT_MSG)'
-	$(GIT) tag -a "$$($(JQ) -r .version elm.json)" -m '$(VERSION_TAG_MSG)'
+	$(TEST) -n "$$($(GIT) status --porcelain)"
+	$(GIT) add elm.json package.json
+	$(GIT) commit --message '$(BUMP_COMMIT_MSG)'
+	$(GIT) tag --message '$(VERSION_TAG_MSG)' --annotate "$$($(JQ) -r .version elm.json)"
 	$(GIT) push $(REMOTE) $$($(GIT) branch --show-current) --set-upstream
 	$(GIT) push $(REMOTE) "$$($(JQ) -r .version elm.json)"
 	$(ELM) publish
