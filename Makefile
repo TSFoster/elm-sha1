@@ -1,5 +1,5 @@
 .PHONY: help test cavs bump publish clean format distclean
-.INTERMEDIATE: cavs/*.rs
+.SECONDARY: cavs/*.rsp
 
 
 CURL := curl
